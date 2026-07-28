@@ -408,10 +408,35 @@ function loadSentences(rows){
   showNext();
 }
 
+// Decode raw bytes, auto-detecting UTF-8 vs Shift_JIS (ANSI on Japanese Windows).
+// Tries strict UTF-8 first; if the bytes aren't valid UTF-8, falls back to Shift_JIS.
+function decodeBytes(buffer){
+  const bytes = new Uint8Array(buffer);
+
+  // Strip UTF-8 BOM if present
+  if(bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF){
+    return new TextDecoder('utf-8').decode(bytes.subarray(3));
+  }
+
+  try{
+    // fatal:true throws if the bytes are not valid UTF-8
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  }catch(e){
+    // Not valid UTF-8 -> assume Shift_JIS (ANSI)
+    return new TextDecoder('shift_jis').decode(bytes);
+  }
+}
+
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if(!file) return;
-  Papa.parse(file, { complete: (res) => loadSentences(res.data) });
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = decodeBytes(reader.result);
+    const res = Papa.parse(text);
+    loadSentences(res.data);
+  };
+  reader.readAsArrayBuffer(file);
 });
 
 loadPasteBtn.addEventListener('click', () => {
@@ -609,9 +634,11 @@ exportBtn.addEventListener('click', () => {
   // Fallback: try fetching english.csv directly (works if hosted via http/https,
   // usually blocked under file:// but harmless to attempt)
   try{
-    const resp = await fetch('english.csv');
+    // cache-bust so CSV edits show up on reload
+    const resp = await fetch('english.csv?t=' + Date.now(), { cache: 'no-store' });
     if(resp.ok){
-      const text = await resp.text();
+      const buf = await resp.arrayBuffer();
+      const text = decodeBytes(buf);
       const res = Papa.parse(text);
       loadSentences(res.data);
       loadStatus.textContent = 'english.csv から自動読み込みしました。';
