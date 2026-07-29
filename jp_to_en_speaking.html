@@ -283,12 +283,29 @@
 
         <div class="block">
           <div class="label">模範解答</div>
-          <div class="body ref-en" id="refEn">—</div>
+          <div style="display:flex;align-items:flex-start;gap:10px;">
+            <div class="body ref-en" id="refEn" style="flex:1;">—</div>
+            <button class="ghost" id="speakBtn" title="読み上げ"
+                    style="padding:8px 12px;min-height:auto;font-size:16px;flex-shrink:0;">🔊</button>
+          </div>
           <div class="note-text" id="refNote" style="display:none;"></div>
         </div>
       </div>
 
       <div class="next-row" id="nextRow" style="display:none;">
+        <div class="row" style="justify-content:center;margin-bottom:12px;font-size:12px;color:var(--muted);">
+          <label style="display:flex;align-items:center;gap:5px;">
+            <input type="checkbox" id="autoSpeak"> 自動で読み上げ
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;">
+            速度
+            <select id="rateSelect" style="padding:5px;border:1px solid var(--paper-line);border-radius:4px;font-size:12px;background:#fdfcfa;">
+              <option value="0.75">遅い</option>
+              <option value="0.9" selected>ふつう</option>
+              <option value="1.0">速い</option>
+            </select>
+          </label>
+        </div>
         <button class="accent" id="nextBtn">次の問題へ →</button>
       </div>
     </div>
@@ -619,6 +636,61 @@ nextBtn.addEventListener('click', () => {
   showNext();
 });
 
+// --- Text to speech (reference answer readout) ---
+const speakBtn = document.getElementById('speakBtn');
+const autoSpeak = document.getElementById('autoSpeak');
+const rateSelect = document.getElementById('rateSelect');
+const AUTOSPEAK_STORE = 'autospeak_v1';
+
+let cachedVoice = null;
+
+function pickVoice(){
+  if(cachedVoice) return cachedVoice;
+  const voices = speechSynthesis.getVoices() || [];
+  const en = voices.filter(v => /^en(-|_)/i.test(v.lang || ''));
+  if(!en.length) return null;
+
+  // Prefer higher-quality voices where the platform exposes them
+  const score = (v) => {
+    let s = 0;
+    const n = (v.name || '').toLowerCase();
+    if(/google/.test(n)) s += 5;          // Android/Chrome high quality
+    if(/natural|neural|enhanced|premium/.test(n)) s += 4;
+    if(/^en-us/i.test(v.lang)) s += 2;    // default to US English
+    if(/^en-gb/i.test(v.lang)) s += 1;
+    if(v.localService === false) s += 1;  // network voices usually better
+    return s;
+  };
+  cachedVoice = en.slice().sort((a, b) => score(b) - score(a))[0];
+  return cachedVoice;
+}
+
+// Voice list loads asynchronously in some browsers
+if(typeof speechSynthesis !== 'undefined'){
+  speechSynthesis.onvoiceschanged = () => { cachedVoice = null; pickVoice(); };
+  pickVoice();
+}
+
+function speakText(text){
+  if(!text || typeof speechSynthesis === 'undefined') return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  const v = pickVoice();
+  if(v){ u.voice = v; u.lang = v.lang; } else { u.lang = 'en-US'; }
+  u.rate = parseFloat(rateSelect.value) || 0.9;
+  u.pitch = 1.0;
+  speechSynthesis.speak(u);
+}
+
+speakBtn.addEventListener('click', () => {
+  const s = sentences.find(x => x.id === currentId);
+  if(s) speakText(s.en);
+});
+
+autoSpeak.addEventListener('change', async () => {
+  await store.set(AUTOSPEAK_STORE, autoSpeak.checked ? '1' : '0');
+});
+
 // --- Speech recognition ---
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
@@ -787,6 +859,10 @@ function showResult(sentence, transcript, gradeResult){
   } else {
     refNote.style.display = 'none';
   }
+
+  if(autoSpeak.checked){
+    speakText(sentence.en);
+  }
 }
 
 function updateProgress(id, correct){
@@ -825,6 +901,9 @@ exportBtn.addEventListener('click', () => {
 (async function autoInit(){
   await loadProgress();
   await loadApiKey();
+
+  const as = await store.get(AUTOSPEAK_STORE);
+  if(as === '1') autoSpeak.checked = true;
 
   if(typeof window.EMBEDDED_CSV === 'string' && window.EMBEDDED_CSV.trim()){
     const res = Papa.parse(window.EMBEDDED_CSV.trim());
