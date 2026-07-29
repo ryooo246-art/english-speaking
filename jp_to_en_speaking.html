@@ -335,7 +335,7 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found - will fall back to manual import')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v1.5';
+const APP_VERSION = 'v1.6';
 const APP_UPDATED = '2026-07-29';
 document.getElementById('versionLabel').textContent =
   APP_VERSION + ' (' + APP_UPDATED + ')';
@@ -482,6 +482,16 @@ const API_KEY_STORE = 'gemini_api_key_v1';
 const MODEL_STORE = 'gemini_model_v1';
 let apiKey = '';
 let MODEL_ID = 'gemini-3.5-flash';
+let availableModels = [];
+const MODELS_LIST_STORE = 'gemini_models_list_v1';
+// Ordered by how generous the free tier usually is (lite/older first)
+const FALLBACK_MODELS = [
+  'gemini-2.5-flash-lite',
+  'gemini-3.5-flash-lite',
+  'gemini-2.0-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-2.0-flash'
+];
 const apiKeyInput = document.getElementById('apiKeyInput');
 const saveKeyBtn = document.getElementById('saveKeyBtn');
 const keyStatus = document.getElementById('keyStatus');
@@ -536,18 +546,21 @@ listModelsBtn.addEventListener('click', async () => {
       .filter(id => !/image|tts|live|audio|native|thinking|exp|preview/.test(id));
 
     const ranked = (candidates.length ? candidates : usable).slice().sort((a, b) => {
+      // Lite variants generally have much larger free-tier quotas, so try them first.
+      const liteA = /lite/.test(a) ? 0 : 1;
+      const liteB = /lite/.test(b) ? 0 : 1;
+      if(liteA !== liteB) return liteA - liteB;
       const vd = versionOf(b) - versionOf(a);
       if(vd !== 0) return vd;
-      const liteA = /lite/.test(a) ? 1 : 0;
-      const liteB = /lite/.test(b) ? 1 : 0;
-      if(liteA !== liteB) return liteA - liteB;
       return a.length - b.length;
     });
 
     const preferred = ranked[0];
     modelSelect.value = preferred;
     MODEL_ID = preferred;
+    availableModels = ranked;
     await store.set(MODEL_STORE, MODEL_ID);
+    await store.set(MODELS_LIST_STORE, JSON.stringify(ranked));
     keyStatus.textContent = `✓ ${usable.length}件取得。「${preferred}」を選択しました。`;
   }catch(e){
     console.error(e);
@@ -561,6 +574,10 @@ modelSelect.addEventListener('change', async () => {
 });
 
 async function loadApiKey(){
+  const savedList = await store.get(MODELS_LIST_STORE);
+  if(savedList){
+    try{ availableModels = JSON.parse(savedList) || []; }catch(e){ availableModels = []; }
+  }
   const savedModel = await store.get(MODEL_STORE);
   if(savedModel){
     MODEL_ID = savedModel;
@@ -869,7 +886,42 @@ async function gradeAnswer(sentence, transcript){
     throw new Error('NO_API_KEY');
   }
 
-  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' + MODEL_ID + ':generateContent';
+  return await gradeWithFallback(systemPrompt, userPrompt);
+}
+
+// Try the selected model, then fall back through other available models
+// when the free-tier quota for one is exhausted (429) or it is unavailable (404).
+async function gradeWithFallback(systemPrompt, userPrompt){
+  const chain = [MODEL_ID].concat(
+    availableModels.filter(m => m !== MODEL_ID),
+    FALLBACK_MODELS.filter(m => m !== MODEL_ID && !availableModels.includes(m))
+  ).slice(0, 5);
+
+  let lastErr = null;
+  for(let i = 0; i < chain.length; i++){
+    const model = chain[i];
+    try{
+      const result = await callModel(model, systemPrompt, userPrompt);
+      if(model !== MODEL_ID){
+        // Remember the model that actually worked
+        MODEL_ID = model;
+        modelSelect.value = model;
+        await store.set(MODEL_STORE, model);
+        keyStatus.textContent = `モデルを「${model}」に自動切替しました(前のモデルは制限に達したため)。`;
+      }
+      return result;
+    }catch(e){
+      lastErr = e;
+      // Only worth trying another model for quota / availability problems
+      if(e.message !== 'API_429' && e.message !== 'API_404'){ throw e; }
+      statusLine.textContent = `${model} が使用できません。別のモデルを試しています...`;
+    }
+  }
+  throw lastErr || new Error('API_UNKNOWN');
+}
+
+async function callModel(model, systemPrompt, userPrompt){
+  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent';
 
   const response = await fetch(endpoint, {
     method: 'POST',
