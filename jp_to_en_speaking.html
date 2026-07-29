@@ -137,6 +137,9 @@
     color:var(--muted);
     min-height:18px;
     margin-bottom:10px;
+    white-space:pre-wrap;
+    word-break:break-word;
+    line-height:1.5;
   }
   .waveform{
     height:30px;
@@ -673,9 +676,12 @@ async function handleTranscript(transcript){
     } else if(err.message === 'API_400' || err.message === 'API_403'){
       msg = 'APIキーが正しくないようです。設定欄を確認してください。';
     } else if(err.message === 'API_429'){
-      msg = '無料枠の上限に達しました。少し待ってから再度お試しください。';
+      msg = 'レート制限です。別のモデル(2.5-flash-lite等)に変えるか、1分ほど待ってお試しください。';
     } else if(err.message === 'API_404'){
       msg = 'このモデルは利用できません。設定欄で別のモデルを選んでください。';
+    }
+    if(err.detail){
+      msg += '\n[詳細] ' + err.detail;
     }
     statusLine.textContent = msg;
     micBtn.style.display = 'block';
@@ -730,7 +736,14 @@ async function gradeAnswer(sentence, transcript){
   if(!response.ok){
     const errText = await response.text();
     console.error('Gemini API error:', response.status, errText);
-    throw new Error('API_' + response.status);
+    let detail = '';
+    try{
+      const ej = JSON.parse(errText);
+      detail = (ej.error && ej.error.message) ? ej.error.message : '';
+    }catch(e){ detail = errText.slice(0, 200); }
+    const err = new Error('API_' + response.status);
+    err.detail = detail;
+    throw err;
   }
 
   const data = await response.json();
