@@ -220,9 +220,10 @@
     <div class="row" style="margin-top:10px;">
       <label style="font-size:12px;color:var(--muted);">モデル:</label>
       <select id="modelSelect" style="flex:1;min-width:150px;padding:9px;border:1px solid var(--paper-line);border-radius:4px;font-family:var(--mono);font-size:12px;background:#fdfcfa;">
-        <option value="gemini-2.5-flash">gemini-2.5-flash</option>
         <option value="gemini-3.5-flash">gemini-3.5-flash</option>
-        <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+        <option value="gemini-3-flash">gemini-3-flash</option>
+        <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option>
+        <option value="gemini-2.5-flash">gemini-2.5-flash (旧)</option>
       </select>
     </div>
     <div class="row" style="margin-top:8px;">
@@ -404,7 +405,7 @@ async function saveProgress(){
 const API_KEY_STORE = 'gemini_api_key_v1';
 const MODEL_STORE = 'gemini_model_v1';
 let apiKey = '';
-let MODEL_ID = 'gemini-2.5-flash';
+let MODEL_ID = 'gemini-3.5-flash';
 const apiKeyInput = document.getElementById('apiKeyInput');
 const saveKeyBtn = document.getElementById('saveKeyBtn');
 const keyStatus = document.getElementById('keyStatus');
@@ -449,10 +450,25 @@ listModelsBtn.addEventListener('click', async () => {
       modelSelect.appendChild(opt);
     });
 
-    // Prefer a lightweight flash model if present
-    const preferred = usable.find(id => /flash/.test(id) && !/lite|image|tts|live/.test(id))
-                   || usable.find(id => /flash/.test(id))
-                   || usable[0];
+    // Rank: newest generation first, plain "flash" preferred over special variants.
+    function versionOf(id){
+      const m = id.match(/gemini-(\d+(?:\.\d+)?)/);
+      return m ? parseFloat(m[1]) : 0;
+    }
+    const candidates = usable
+      .filter(id => /flash/.test(id))
+      .filter(id => !/image|tts|live|audio|native|thinking|exp|preview/.test(id));
+
+    const ranked = (candidates.length ? candidates : usable).slice().sort((a, b) => {
+      const vd = versionOf(b) - versionOf(a);
+      if(vd !== 0) return vd;
+      const liteA = /lite/.test(a) ? 1 : 0;
+      const liteB = /lite/.test(b) ? 1 : 0;
+      if(liteA !== liteB) return liteA - liteB;
+      return a.length - b.length;
+    });
+
+    const preferred = ranked[0];
     modelSelect.value = preferred;
     MODEL_ID = preferred;
     await store.set(MODEL_STORE, MODEL_ID);
