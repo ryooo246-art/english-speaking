@@ -222,6 +222,9 @@
         <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
       </select>
     </div>
+    <div class="row" style="margin-top:8px;">
+      <button class="ghost" id="listModelsBtn" style="font-size:12px;padding:8px 12px;min-height:auto;">使えるモデルを取得</button>
+    </div>
     <div id="keyStatus" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
     <div class="hint">
       キーは <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> で無料発行できます(カード登録不要)。
@@ -403,6 +406,59 @@ const apiKeyInput = document.getElementById('apiKeyInput');
 const saveKeyBtn = document.getElementById('saveKeyBtn');
 const keyStatus = document.getElementById('keyStatus');
 const modelSelect = document.getElementById('modelSelect');
+const listModelsBtn = document.getElementById('listModelsBtn');
+
+listModelsBtn.addEventListener('click', async () => {
+  const key = (apiKeyInput.value || apiKey || '').trim();
+  if(!key){
+    keyStatus.textContent = '先にAPIキーを入力してください。';
+    return;
+  }
+  keyStatus.textContent = 'モデル一覧を取得中...';
+  try{
+    const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+      headers: { 'x-goog-api-key': key }
+    });
+    if(!resp.ok){
+      const t = await resp.text();
+      console.error('ListModels failed:', resp.status, t);
+      keyStatus.textContent = '取得に失敗しました (' + resp.status + ')。キーを確認してください。';
+      return;
+    }
+    const data = await resp.json();
+    // Keep only models that can actually generate content
+    const usable = (data.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => (m.name || '').replace(/^models\//, ''))
+      .filter(Boolean)
+      .sort();
+
+    if(!usable.length){
+      keyStatus.textContent = '利用可能なモデルが見つかりませんでした。';
+      return;
+    }
+
+    modelSelect.innerHTML = '';
+    usable.forEach(id => {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = id;
+      modelSelect.appendChild(opt);
+    });
+
+    // Prefer a lightweight flash model if present
+    const preferred = usable.find(id => /flash/.test(id) && !/lite|image|tts|live/.test(id))
+                   || usable.find(id => /flash/.test(id))
+                   || usable[0];
+    modelSelect.value = preferred;
+    MODEL_ID = preferred;
+    await store.set(MODEL_STORE, MODEL_ID);
+    keyStatus.textContent = `✓ ${usable.length}件取得。「${preferred}」を選択しました。`;
+  }catch(e){
+    console.error(e);
+    keyStatus.textContent = '取得中にエラーが発生しました。通信環境を確認してください。';
+  }
+});
 
 modelSelect.addEventListener('change', async () => {
   MODEL_ID = modelSelect.value;
