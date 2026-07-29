@@ -315,8 +315,8 @@
     <div class="row" style="margin-bottom:10px;">
       <input type="file" id="fileInput" accept=".csv,text/csv,text/plain,text/comma-separated-values,application/csv,application/vnd.ms-excel,*/*">
     </div>
-    <div style="font-size:12px;color:var(--muted);margin:6px 0 4px;">列: english, japanese, note(注釈・任意)</div>
-    <textarea id="pasteArea" placeholder="Nice to meet you.,はじめまして,丁寧な初対面の挨拶&#10;How are you doing?,調子はどうですか？,"></textarea>
+    <div style="font-size:12px;color:var(--muted);margin:6px 0 4px;">列: <b>id, english, japanese, note</b>(noteは任意 / id必須)</div>
+    <textarea id="pasteArea" placeholder="1,Nice to meet you.,はじめまして,丁寧な初対面の挨拶&#10;2,How are you doing?,調子はどうですか？,"></textarea>
     <div class="row" style="margin-top:10px;">
       <button class="ghost" id="loadPasteBtn">貼り付けたテキストを読み込む</button>
     </div>
@@ -335,7 +335,7 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found - will fall back to manual import')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v1.4';
+const APP_VERSION = 'v1.5';
 const APP_UPDATED = '2026-07-29';
 document.getElementById('versionLabel').textContent =
   APP_VERSION + ' (' + APP_UPDATED + ')';
@@ -411,27 +411,37 @@ const statTotal = document.getElementById('statTotal');
 const statLow = document.getElementById('statLow');
 const statHigh = document.getElementById('statHigh');
 
-function hashId(str){
-  // simple stable hash (djb2)
-  let h = 5381;
-  for(let i=0;i<str.length;i++){
-    h = ((h << 5) + h) + str.charCodeAt(i);
-    h = h & 0xffffffff;
-  }
-  return 'id_' + Math.abs(h).toString(36);
-}
-
 function parseRows(rows){
-  let data = rows.filter(r => r.length >= 2 && (r[0]||'').trim() !== '');
-  if(data.length && /^english$/i.test((data[0][0]||'').trim())){
+  let data = rows.filter(r => r.length >= 3 && r.some(c => (c||'').trim() !== ''));
+
+  // Skip header row if present
+  if(data.length && /^id$/i.test((data[0][0]||'').trim())){
     data = data.slice(1);
   }
-  return data.map(r => {
-    const en = (r[0]||'').trim();
-    const ja = (r[1]||'').trim();
-    const note = (r[2]||'').trim();
-    return { id: hashId(en.toLowerCase()), en, ja, note };
-  }).filter(x => x.en && x.ja);
+
+  const seen = new Set();
+  const dupes = [];
+  let skipped = 0;
+
+  const out = [];
+  data.forEach(r => {
+    const id   = (r[0]||'').trim();
+    const en   = (r[1]||'').trim();
+    const ja   = (r[2]||'').trim();
+    const note = (r[3]||'').trim();
+
+    // id is required - rows without one are ignored
+    if(!id || !en || !ja){ skipped++; return; }
+
+    if(seen.has(id)){ dupes.push(id); return; }
+    seen.add(id);
+
+    out.push({ id: 'q_' + id, rawId: id, en, ja, note });
+  });
+
+  parseRows.lastSkipped = skipped;
+  parseRows.lastDupes = dupes;
+  return out;
 }
 
 // Storage shim: uses window.storage when available (claude.ai artifact),
@@ -616,11 +626,18 @@ function pickNext(excludeId){
 function loadSentences(rows){
   const parsed = parseRows(rows);
   if(parsed.length === 0){
-    loadStatus.textContent = '読み込める行が見つかりませんでした。';
+    loadStatus.textContent = '読み込める行がありません。1列目にid、2列目にenglish、3列目にjapaneseが必要です。';
     return;
   }
   sentences = parsed;
-  loadStatus.textContent = `${sentences.length} 件読み込みました。`;
+  let msg = `${sentences.length} 件読み込みました。`;
+  if(parseRows.lastSkipped){
+    msg += ` (ID未記入などで ${parseRows.lastSkipped} 行スキップ)`;
+  }
+  if(parseRows.lastDupes && parseRows.lastDupes.length){
+    msg += ` ⚠ ID重複: ${parseRows.lastDupes.slice(0,5).join(', ')}`;
+  }
+  loadStatus.textContent = msg;
   practiceArea.style.display = 'block';
   emptyState.style.display = 'none';
   updateStatBar();
@@ -933,10 +950,10 @@ function updateProgress(id, correct){
 }
 
 exportBtn.addEventListener('click', () => {
-  const rows = [['english','japanese','note','level','correct','wrong','seen']];
+  const rows = [['id','english','japanese','note','level','correct','wrong','seen']];
   sentences.forEach(s => {
     const st = getStats(s.id);
-    rows.push([s.en, s.ja, s.note || '', st.level, st.correct, st.wrong, st.seen]);
+    rows.push([s.rawId, s.en, s.ja, s.note || '', st.level, st.correct, st.wrong, st.seen]);
   });
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
