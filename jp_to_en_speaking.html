@@ -29,174 +29,62 @@
     padding:20px 14px 60px;
   }
   .wrap{max-width:640px;margin:0 auto;}
-  header{
-    border-bottom:3px solid var(--ink);
-    padding-bottom:12px;
-    margin-bottom:18px;
-  }
-  h1{
-    font-family:var(--serif);
-    font-size:clamp(20px,5vw,26px);
-    font-weight:700;
-    margin:0;
-  }
-  .sub{font-size:11px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;margin-top:4px;}
+  header{border-bottom:3px solid var(--ink);padding-bottom:12px;margin-bottom:18px;}
+  h1{font-family:var(--serif);font-size:clamp(20px,5vw,26px);font-weight:700;margin:0;}
+  .sub{font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;margin-top:4px;}
 
-  .panel{
-    background:var(--card);
-    border:1px solid var(--paper-line);
-    border-radius:6px;
-    padding:16px;
-    margin-bottom:16px;
-  }
-  .panel h2{
-    font-size:12px;
-    text-transform:uppercase;
-    letter-spacing:1.5px;
-    color:var(--muted);
-    margin:0 0 10px;
-    font-family:var(--mono);
-  }
-  textarea{
-    width:100%;
-    min-height:80px;
-    font-family:var(--mono);
-    font-size:13px;
-    padding:10px;
-    border:1px solid var(--paper-line);
-    border-radius:4px;
-    resize:vertical;
-    background:#fdfcfa;
-  }
+  .panel{background:var(--card);border:1px solid var(--paper-line);border-radius:6px;padding:16px;margin-bottom:16px;}
+  .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin:0 0 10px;font-family:var(--mono);}
+  textarea{width:100%;min-height:80px;font-family:var(--mono);font-size:13px;padding:10px;border:1px solid var(--paper-line);border-radius:4px;resize:vertical;background:#fdfcfa;}
   input[type=file]{font-size:13px;width:100%;}
-
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
 
-  button{
-    font-family:var(--sans);
-    font-size:14px;
-    font-weight:600;
-    border:1px solid var(--ink);
-    background:var(--ink);
-    color:var(--paper);
-    padding:12px 18px;
-    border-radius:6px;
-    cursor:pointer;
-    min-height:46px;
-  }
+  button{font-family:var(--sans);font-size:14px;font-weight:600;border:1px solid var(--ink);background:var(--ink);color:var(--paper);padding:12px 18px;border-radius:6px;cursor:pointer;min-height:46px;}
   button.ghost{background:transparent;color:var(--ink);}
   button.accent{background:var(--accent);border-color:var(--accent);}
   button:disabled{opacity:0.35;}
-  button.mic{
-    width:100%;
-    font-size:17px;
-    padding:16px;
-  }
+  button.mic{width:100%;font-size:17px;padding:16px;}
   button.mic.on{background:var(--warn);border-color:var(--warn);}
 
-  .statbar{
-    display:flex;
-    justify-content:space-between;
-    font-family:var(--mono);
-    font-size:11px;
-    color:var(--muted);
-    margin-bottom:14px;
-    flex-wrap:wrap;
-    gap:6px;
-  }
+  .statbar{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:14px;flex-wrap:wrap;gap:6px;}
   .statbar b{color:var(--ink);}
 
-  .card{
-    background:var(--card);
-    border:1px solid var(--paper-line);
-    border-radius:8px;
-    padding:26px 20px;
-    text-align:center;
-    position:relative;
-  }
-  .lvl-chip{
-    position:absolute;
-    top:12px;
-    right:14px;
-    font-family:var(--mono);
-    font-size:10px;
-    color:var(--muted);
-    border:1px solid var(--paper-line);
-    border-radius:20px;
-    padding:2px 8px;
-  }
-  .ja-prompt{
-    font-family:var(--serif);
-    font-size:clamp(20px,6vw,26px);
-    line-height:1.5;
-    margin:6px 0 22px;
-  }
-  .status-line{
-    font-family:var(--mono);
-    font-size:12px;
-    color:var(--muted);
-    min-height:18px;
-    margin-bottom:10px;
-    white-space:pre-wrap;
-    word-break:break-word;
-    line-height:1.5;
-  }
-  .waveform{
-    height:30px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:3px;
-    margin:8px 0 14px;
-  }
-  .waveform span{
-    width:4px;
-    background:var(--accent-dim);
-    border-radius:2px;
-    height:6px;
-  }
+  .card{background:var(--card);border:1px solid var(--paper-line);border-radius:8px;padding:26px 20px 22px;text-align:center;position:relative;}
+  .chips{position:absolute;top:10px;left:12px;right:12px;display:flex;justify-content:space-between;gap:6px;}
+  .chip{font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--paper-line);border-radius:20px;padding:2px 9px;white-space:nowrap;}
+  .chip.group{background:var(--accent-dim);color:var(--accent);border-color:var(--accent-dim);}
+
+  .ja-prompt{font-family:var(--serif);font-size:clamp(20px,6vw,26px);line-height:1.5;margin:22px 0 8px;}
+  .variant-counter{font-family:var(--mono);font-size:12px;color:var(--accent);margin-bottom:16px;min-height:16px;}
+
+  .status-line{font-family:var(--mono);font-size:12px;color:var(--muted);min-height:18px;margin-bottom:10px;white-space:pre-wrap;word-break:break-word;line-height:1.5;}
+  .waveform{height:30px;display:flex;align-items:center;justify-content:center;gap:3px;margin:8px 0 14px;}
+  .waveform span{width:4px;background:var(--accent-dim);border-radius:2px;height:6px;}
   .waveform.active span{background:var(--accent);}
 
-  .result{
-    margin-top:18px;
-    padding-top:16px;
-    border-top:1px dashed var(--paper-line);
-    text-align:left;
-  }
-  .badge{
-    display:inline-block;
-    font-family:var(--mono);
-    font-size:12px;
-    font-weight:700;
-    padding:4px 12px;
-    border-radius:20px;
-    margin-bottom:12px;
-  }
+  .result{margin-top:18px;padding-top:16px;border-top:1px dashed var(--paper-line);text-align:left;}
+  .badge{display:inline-block;font-family:var(--mono);font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;margin-bottom:12px;}
   .badge.correct{background:var(--accent-dim);color:var(--accent);}
   .badge.wrong{background:var(--warn-dim);color:var(--warn);}
 
   .block{margin-bottom:12px;}
-  .block .label{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+  .block .label{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
   .block .body{font-size:14px;line-height:1.6;}
-  .ref-en{font-family:var(--serif);font-size:18px;}
-  .note-text{font-size:13px;color:var(--muted);margin-top:4px;padding-left:10px;border-left:2px solid var(--paper-line);}
 
-  .empty{
-    text-align:center;
-    padding:36px 16px;
-    color:var(--muted);
-    font-family:var(--mono);
-    font-size:13px;
-  }
+  .ans-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px dotted var(--paper-line);}
+  .ans-item:last-child{border-bottom:none;}
+  .ans-mark{font-family:var(--mono);font-size:13px;flex-shrink:0;width:18px;text-align:center;padding-top:2px;}
+  .ans-main{flex:1;}
+  .ans-en{font-family:var(--serif);font-size:17px;line-height:1.4;}
+  .ans-item.said .ans-en{color:var(--muted);}
+  .ans-item.matched{background:var(--accent-dim);border-radius:5px;padding-left:8px;padding-right:8px;}
+  .ans-note{font-size:12px;color:var(--muted);margin-top:3px;padding-left:9px;border-left:2px solid var(--paper-line);line-height:1.5;}
+  .ans-speak{background:none;border:none;font-size:15px;padding:2px 6px;min-height:auto;cursor:pointer;color:var(--ink);flex-shrink:0;}
+
+  .empty{text-align:center;padding:36px 16px;color:var(--muted);font-family:var(--mono);font-size:13px;}
   .hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;}
-  footer{
-    text-align:center;
-    font-family:var(--mono);
-    font-size:10px;
-    color:var(--muted);
-    margin-top:26px;
-    line-height:1.8;
-  }
+  .hint a{color:var(--accent);}
+  footer{text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:26px;line-height:1.8;}
   .next-row{margin-top:16px;text-align:center;}
   .export-row{margin-top:10px;text-align:right;}
   .export-row button{font-size:11px;padding:6px 10px;min-height:auto;}
@@ -207,7 +95,7 @@
 
   <header>
     <h1>和文英訳スピーキング</h1>
-    <div class="sub">Japanese → English / Speak · <span id="versionLabel">v1.0</span></div>
+    <div class="sub"><span id="versionLabel">v2.0</span></div>
   </header>
 
   <div id="practiceArea" style="display:none;">
@@ -218,8 +106,14 @@
     </div>
 
     <div class="card">
-      <div class="lvl-chip" id="lvlChip">Lv.–</div>
+      <div class="chips">
+        <span class="chip" id="lessonChip" style="visibility:hidden;">Lesson –</span>
+        <span class="chip" id="groupChip" style="visibility:hidden;">–</span>
+        <span class="chip" id="lvlChip">Lv.–</span>
+      </div>
+
       <p class="ja-prompt" id="jaPrompt">—</p>
+      <div class="variant-counter" id="variantCounter"></div>
 
       <div class="status-line" id="statusLine">マイクボタンを押して話してください</div>
       <div class="waveform" id="waveform">
@@ -244,12 +138,7 @@
 
         <div class="block">
           <div class="label">模範解答</div>
-          <div style="display:flex;align-items:flex-start;gap:10px;">
-            <div class="body ref-en" id="refEn" style="flex:1;">—</div>
-            <button class="ghost" id="speakBtn" title="読み上げ"
-                    style="padding:8px 12px;min-height:auto;font-size:16px;flex-shrink:0;">🔊</button>
-          </div>
-          <div class="note-text" id="refNote" style="display:none;"></div>
+          <div id="answerList"></div>
         </div>
       </div>
 
@@ -267,7 +156,7 @@
             </select>
           </label>
         </div>
-        <button class="accent" id="nextBtn">次の問題へ →</button>
+        <button class="accent" id="nextBtn">次へ →</button>
       </div>
     </div>
 
@@ -276,28 +165,28 @@
     </div>
 
     <div class="hint">
-      苦手な問題(習熟レベルが低いもの)ほど出題されやすくなります。正解するとレベルが上がって出にくくなり、間違えるとレベル0に戻って出やすくなります。
+      苦手な問題ほど出題されやすくなります。同じidの問題は答えの数だけ連続で出題され、まだ言っていない答えを言えたら正解です。
     </div>
   </div>
 
   <div class="empty" id="emptyState">
-    まだ問題が読み込まれていません。上のCSVから読み込んでください。
+    まだ問題が読み込まれていません。下のCSVから読み込んでください。
   </div>
 
   <div class="panel" id="apiPanel">
     <h2>Gemini APIキー設定</h2>
     <div class="row">
-      <input type="password" id="apiKeyInput" placeholder="AIza... で始まるキーを貼り付け"
+      <input type="password" id="apiKeyInput" placeholder="APIキーを貼り付け"
              style="flex:1;min-width:180px;padding:11px;border:1px solid var(--paper-line);border-radius:4px;font-family:var(--mono);font-size:13px;background:#fdfcfa;">
       <button class="ghost" id="saveKeyBtn">保存</button>
     </div>
     <div class="row" style="margin-top:10px;">
       <label style="font-size:12px;color:var(--muted);">モデル:</label>
       <select id="modelSelect" style="flex:1;min-width:150px;padding:9px;border:1px solid var(--paper-line);border-radius:4px;font-family:var(--mono);font-size:12px;background:#fdfcfa;">
-        <option value="gemini-3.5-flash">gemini-3.5-flash</option>
-        <option value="gemini-3-flash">gemini-3-flash</option>
+        <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
         <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option>
-        <option value="gemini-2.5-flash">gemini-2.5-flash (旧)</option>
+        <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
+        <option value="gemini-3.5-flash">gemini-3.5-flash</option>
       </select>
     </div>
     <div class="row" style="margin-top:8px;">
@@ -305,42 +194,43 @@
     </div>
     <div id="keyStatus" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
     <div class="hint">
-      キーは <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> で無料発行できます(カード登録不要)。
-      入力したキーはこの端末のブラウザにのみ保存され、外部には送信されません。
+      キーは <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> で無料発行できます。
+      入力したキーはこの端末のブラウザにのみ保存されます。制限に達したモデルは自動で切り替わります。
     </div>
   </div>
 
   <div class="panel" id="importPanel">
-    <h2>1. CSVを読み込む</h2>
+    <h2>CSVを読み込む</h2>
     <div class="row" style="margin-bottom:10px;">
       <input type="file" id="fileInput" accept=".csv,text/csv,text/plain,text/comma-separated-values,application/csv,application/vnd.ms-excel,*/*">
     </div>
-    <div style="font-size:12px;color:var(--muted);margin:6px 0 4px;">列: <b>id, english, japanese, note</b>(noteは任意 / id必須)</div>
-    <textarea id="pasteArea" placeholder="1,Nice to meet you.,はじめまして,丁寧な初対面の挨拶&#10;2,How are you doing?,調子はどうですか？,"></textarea>
+    <div style="font-size:12px;color:var(--muted);margin:6px 0 4px;">
+      列: <b>id, group, lesson, english, japanese, note</b><br>
+      idは必須。groupとnoteは空欄可。カンマ区切り/タブ区切りどちらも可。
+    </div>
+    <textarea id="pasteArea" placeholder="id,group,lesson,english,japanese,note&#10;1,,1,It took me forever.,すごく時間がかかった,&#10;4,挨拶,1,How are you?,お元気ですか,&#10;4,挨拶,1,How's it going?,お元気ですか,"></textarea>
     <div class="row" style="margin-top:10px;">
       <button class="ghost" id="loadPasteBtn">貼り付けたテキストを読み込む</button>
     </div>
     <div id="loadStatus" style="font-size:12px;color:var(--muted);margin-top:6px;"></div>
   </div>
 
-
   <footer>
-    Web Speech API(音声認識・読み上げ)+ Claude API(意味判定)を使用<br>
-    音声認識は Android の Chrome アプリで直接開いた場合に最も安定して動作します<br>
+    Web Speech API(音声認識・読み上げ)+ Gemini API(意味判定)を使用<br>
+    Android の Chrome アプリで開いた場合に最も安定して動作します<br>
     進捗はこの端末のブラウザに自動保存されます
   </footer>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="english_data.js" onerror="console.log('english_data.js not found - will fall back to manual import')"></script>
+<script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v1.6';
-const APP_UPDATED = '2026-07-29';
-document.getElementById('versionLabel').textContent =
-  APP_VERSION + ' (' + APP_UPDATED + ')';
+const APP_VERSION = 'v2.0';
+const APP_UPDATED = '2026-07-31';
+document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
-// ===== Sound effects (synthesized, no external files) =====
+// ===== Sound effects =====
 let audioCtx = null;
 function getAudioCtx(){
   if(!audioCtx){
@@ -351,7 +241,6 @@ function getAudioCtx(){
   if(audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
-
 function tone(freq, startOffset, duration, type, peak){
   const ctx = getAudioCtx();
   if(!ctx) return;
@@ -363,96 +252,34 @@ function tone(freq, startOffset, duration, type, peak){
   gain.gain.setValueAtTime(0, t0);
   gain.gain.linearRampToValueAtTime(peak || 0.25, t0 + 0.015);
   gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(t0);
-  osc.stop(t0 + duration + 0.05);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(t0); osc.stop(t0 + duration + 0.05);
 }
+function playCorrect(){ tone(880,0,0.35,'sine',0.28); tone(1174.7,0.16,0.45,'sine',0.28); }
+function playWrong(){ tone(196,0,0.30,'square',0.16); tone(155,0.16,0.38,'square',0.16); }
 
-// "ピンポン" — two rising chime notes
-function playCorrect(){
-  tone(880, 0.00, 0.35, 'sine', 0.28);   // ピン
-  tone(1174.7, 0.16, 0.45, 'sine', 0.28); // ポン
-}
+// ===== State =====
+let questions = [];   // {key, rawId, group, lesson, ja, variants:[{en,note}]}
+let progress = {};    // key -> {level, correct, wrong, seen}
+let queue = [];       // upcoming question keys (group runs)
+let currentQ = null;
+let run = null;       // {saidIdx:[], attempt:0, total:N, allCorrect:true}
+let lastQKey = null;
 
-// "ブー" — low buzzer
-function playWrong(){
-  tone(196, 0.00, 0.30, 'square', 0.16);
-  tone(155, 0.16, 0.38, 'square', 0.16);
-}
+const PROGRESS_KEY = 'jp_en_progress_v2';
 
-// ===== App state =====
-let sentences = [];   // {id, en, ja, note}
-let progress = {};    // id -> {level, correct, wrong, seen}
-let currentId = null;
-const PROGRESS_KEY = 'jp_en_progress_v1';
+const els = {};
+['fileInput','pasteArea','loadPasteBtn','loadStatus','practiceArea','emptyState',
+ 'jaPrompt','lvlChip','lessonChip','groupChip','variantCounter','statusLine','micBtn',
+ 'waveform','resultBox','badge','heardText','feedbackText','answerList','nextRow','nextBtn',
+ 'exportBtn','statTotal','statLow','statHigh','apiKeyInput','saveKeyBtn','keyStatus',
+ 'modelSelect','listModelsBtn','autoSpeak','rateSelect'].forEach(id => els[id] = document.getElementById(id));
 
-const fileInput = document.getElementById('fileInput');
-const pasteArea = document.getElementById('pasteArea');
-const loadPasteBtn = document.getElementById('loadPasteBtn');
-const loadStatus = document.getElementById('loadStatus');
-const practiceArea = document.getElementById('practiceArea');
-const emptyState = document.getElementById('emptyState');
-const jaPrompt = document.getElementById('jaPrompt');
-const lvlChip = document.getElementById('lvlChip');
-const statusLine = document.getElementById('statusLine');
-const micBtn = document.getElementById('micBtn');
-const waveform = document.getElementById('waveform');
-const resultBox = document.getElementById('resultBox');
-const badge = document.getElementById('badge');
-const heardText = document.getElementById('heardText');
-const feedbackText = document.getElementById('feedbackText');
-const refEn = document.getElementById('refEn');
-const refNote = document.getElementById('refNote');
-const nextRow = document.getElementById('nextRow');
-const nextBtn = document.getElementById('nextBtn');
-const exportBtn = document.getElementById('exportBtn');
-const statTotal = document.getElementById('statTotal');
-const statLow = document.getElementById('statLow');
-const statHigh = document.getElementById('statHigh');
-
-function parseRows(rows){
-  let data = rows.filter(r => r.length >= 3 && r.some(c => (c||'').trim() !== ''));
-
-  // Skip header row if present
-  if(data.length && /^id$/i.test((data[0][0]||'').trim())){
-    data = data.slice(1);
-  }
-
-  const seen = new Set();
-  const dupes = [];
-  let skipped = 0;
-
-  const out = [];
-  data.forEach(r => {
-    const id   = (r[0]||'').trim();
-    const en   = (r[1]||'').trim();
-    const ja   = (r[2]||'').trim();
-    const note = (r[3]||'').trim();
-
-    // id is required - rows without one are ignored
-    if(!id || !en || !ja){ skipped++; return; }
-
-    if(seen.has(id)){ dupes.push(id); return; }
-    seen.add(id);
-
-    out.push({ id: 'q_' + id, rawId: id, en, ja, note });
-  });
-
-  parseRows.lastSkipped = skipped;
-  parseRows.lastDupes = dupes;
-  return out;
-}
-
-// Storage shim: uses window.storage when available (claude.ai artifact),
-// otherwise falls back to localStorage (GitHub Pages / local file).
+// ===== Storage shim (window.storage in artifacts, localStorage elsewhere) =====
 const store = {
   async get(key){
     if(window.storage && window.storage.get){
-      try{
-        const res = await window.storage.get(key);
-        return res ? res.value : null;
-      }catch(e){ return null; }
+      try{ const r = await window.storage.get(key); return r ? r.value : null; }catch(e){}
     }
     try{ return localStorage.getItem(key); }catch(e){ return null; }
   },
@@ -465,456 +292,466 @@ const store = {
 };
 
 async function loadProgress(){
-  try{
-    const val = await store.get(PROGRESS_KEY);
-    if(val) progress = JSON.parse(val);
-  }catch(e){
-    progress = {};
-  }
+  try{ const v = await store.get(PROGRESS_KEY); if(v) progress = JSON.parse(v); }
+  catch(e){ progress = {}; }
 }
+async function saveProgress(){ await store.set(PROGRESS_KEY, JSON.stringify(progress)); }
+function getStats(key){ return progress[key] || {level:0, correct:0, wrong:0, seen:0}; }
 
-async function saveProgress(){
-  await store.set(PROGRESS_KEY, JSON.stringify(progress));
-}
-
-// --- API key handling ---
+// ===== API key & model =====
 const API_KEY_STORE = 'gemini_api_key_v1';
 const MODEL_STORE = 'gemini_model_v1';
-let apiKey = '';
-let MODEL_ID = 'gemini-3.5-flash';
-let availableModels = [];
 const MODELS_LIST_STORE = 'gemini_models_list_v1';
-// Ordered by how generous the free tier usually is (lite/older first)
-const FALLBACK_MODELS = [
-  'gemini-2.5-flash-lite',
-  'gemini-3.5-flash-lite',
-  'gemini-2.0-flash-lite',
-  'gemini-3.5-flash',
-  'gemini-2.0-flash'
-];
-const apiKeyInput = document.getElementById('apiKeyInput');
-const saveKeyBtn = document.getElementById('saveKeyBtn');
-const keyStatus = document.getElementById('keyStatus');
-const modelSelect = document.getElementById('modelSelect');
-const listModelsBtn = document.getElementById('listModelsBtn');
+let apiKey = '';
+let MODEL_ID = 'gemini-2.5-flash-lite';
+let availableModels = [];
+const FALLBACK_MODELS = ['gemini-2.5-flash-lite','gemini-3.5-flash-lite','gemini-2.0-flash-lite','gemini-3.5-flash','gemini-2.0-flash'];
 
-listModelsBtn.addEventListener('click', async () => {
-  const key = (apiKeyInput.value || apiKey || '').trim();
-  if(!key){
-    keyStatus.textContent = '先にAPIキーを入力してください。';
-    return;
-  }
-  keyStatus.textContent = 'モデル一覧を取得中...';
+els.modelSelect.addEventListener('change', async () => {
+  MODEL_ID = els.modelSelect.value;
+  await store.set(MODEL_STORE, MODEL_ID);
+});
+
+els.saveKeyBtn.addEventListener('click', async () => {
+  const v = els.apiKeyInput.value.trim();
+  if(!v){ els.keyStatus.textContent = 'キーが入力されていません。'; return; }
+  apiKey = v;
+  await store.set(API_KEY_STORE, v);
+  els.keyStatus.textContent = '✓ 保存しました';
+});
+
+els.listModelsBtn.addEventListener('click', async () => {
+  const key = (els.apiKeyInput.value || apiKey || '').trim();
+  if(!key){ els.keyStatus.textContent = '先にAPIキーを入力してください。'; return; }
+  els.keyStatus.textContent = 'モデル一覧を取得中...';
   try{
     const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
       headers: { 'x-goog-api-key': key }
     });
     if(!resp.ok){
-      const t = await resp.text();
-      console.error('ListModels failed:', resp.status, t);
-      keyStatus.textContent = '取得に失敗しました (' + resp.status + ')。キーを確認してください。';
+      els.keyStatus.textContent = '取得に失敗しました (' + resp.status + ')。キーを確認してください。';
       return;
     }
     const data = await resp.json();
-    // Keep only models that can actually generate content
     const usable = (data.models || [])
       .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
       .map(m => (m.name || '').replace(/^models\//, ''))
-      .filter(Boolean)
-      .sort();
+      .filter(Boolean);
+    if(!usable.length){ els.keyStatus.textContent = '利用可能なモデルが見つかりませんでした。'; return; }
 
-    if(!usable.length){
-      keyStatus.textContent = '利用可能なモデルが見つかりませんでした。';
-      return;
-    }
-
-    modelSelect.innerHTML = '';
-    usable.forEach(id => {
-      const opt = document.createElement('option');
-      opt.value = id;
-      opt.textContent = id;
-      modelSelect.appendChild(opt);
-    });
-
-    // Rank: newest generation first, plain "flash" preferred over special variants.
-    function versionOf(id){
-      const m = id.match(/gemini-(\d+(?:\.\d+)?)/);
-      return m ? parseFloat(m[1]) : 0;
-    }
-    const candidates = usable
-      .filter(id => /flash/.test(id))
-      .filter(id => !/image|tts|live|audio|native|thinking|exp|preview/.test(id));
-
-    const ranked = (candidates.length ? candidates : usable).slice().sort((a, b) => {
-      // Lite variants generally have much larger free-tier quotas, so try them first.
-      const liteA = /lite/.test(a) ? 0 : 1;
-      const liteB = /lite/.test(b) ? 0 : 1;
-      if(liteA !== liteB) return liteA - liteB;
+    const versionOf = id => { const m = id.match(/gemini-(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; };
+    const candidates = usable.filter(id => /flash/.test(id))
+                             .filter(id => !/image|tts|live|audio|native|thinking|exp|preview/.test(id));
+    // Lite variants first: their free-tier quotas are far larger than flagship models
+    const ranked = (candidates.length ? candidates : usable).slice().sort((a,b) => {
+      const la = /lite/.test(a)?0:1, lb = /lite/.test(b)?0:1;
+      if(la !== lb) return la - lb;
       const vd = versionOf(b) - versionOf(a);
       if(vd !== 0) return vd;
       return a.length - b.length;
     });
 
-    const preferred = ranked[0];
-    modelSelect.value = preferred;
-    MODEL_ID = preferred;
+    els.modelSelect.innerHTML = '';
+    ranked.concat(usable.filter(u => !ranked.includes(u))).forEach(id => {
+      const o = document.createElement('option'); o.value = id; o.textContent = id;
+      els.modelSelect.appendChild(o);
+    });
+
     availableModels = ranked;
+    MODEL_ID = ranked[0];
+    els.modelSelect.value = MODEL_ID;
     await store.set(MODEL_STORE, MODEL_ID);
     await store.set(MODELS_LIST_STORE, JSON.stringify(ranked));
-    keyStatus.textContent = `✓ ${usable.length}件取得。「${preferred}」を選択しました。`;
+    els.keyStatus.textContent = `✓ ${usable.length}件取得。「${MODEL_ID}」を選択しました。`;
   }catch(e){
     console.error(e);
-    keyStatus.textContent = '取得中にエラーが発生しました。通信環境を確認してください。';
+    els.keyStatus.textContent = '取得中にエラーが発生しました。';
   }
-});
-
-modelSelect.addEventListener('change', async () => {
-  MODEL_ID = modelSelect.value;
-  await store.set(MODEL_STORE, MODEL_ID);
 });
 
 async function loadApiKey(){
-  const savedList = await store.get(MODELS_LIST_STORE);
-  if(savedList){
-    try{ availableModels = JSON.parse(savedList) || []; }catch(e){ availableModels = []; }
+  const list = await store.get(MODELS_LIST_STORE);
+  if(list){ try{ availableModels = JSON.parse(list) || []; }catch(e){} }
+  const m = await store.get(MODEL_STORE);
+  if(m){
+    MODEL_ID = m;
+    if(![...els.modelSelect.options].some(o => o.value === m)){
+      const o = document.createElement('option'); o.value = m; o.textContent = m;
+      els.modelSelect.appendChild(o);
+    }
+    els.modelSelect.value = m;
   }
-  const savedModel = await store.get(MODEL_STORE);
-  if(savedModel){
-    MODEL_ID = savedModel;
-    modelSelect.value = savedModel;
-  }
-  const val = await store.get(API_KEY_STORE);
-  if(val){
-    apiKey = val;
-    apiKeyInput.value = val;
-    keyStatus.textContent = '✓ APIキーが保存されています';
-  } else {
-    keyStatus.textContent = 'APIキーが未設定です。設定するとAI判定が使えます。';
-  }
+  const k = await store.get(API_KEY_STORE);
+  if(k){ apiKey = k; els.apiKeyInput.value = k; els.keyStatus.textContent = '✓ APIキーが保存されています'; }
+  else { els.keyStatus.textContent = 'APIキーが未設定です。'; }
 }
 
-saveKeyBtn.addEventListener('click', async () => {
-  const val = apiKeyInput.value.trim();
-  if(!val){
-    keyStatus.textContent = 'キーが入力されていません。';
+// ===== CSV parsing =====
+function decodeBytes(buffer){
+  const bytes = new Uint8Array(buffer);
+  if(bytes.length >= 3 && bytes[0]===0xEF && bytes[1]===0xBB && bytes[2]===0xBF){
+    return new TextDecoder('utf-8').decode(bytes.subarray(3));
+  }
+  try{ return new TextDecoder('utf-8', {fatal:true}).decode(bytes); }
+  catch(e){ return new TextDecoder('shift_jis').decode(bytes); }
+}
+
+// Rows: id, group, lesson, english, japanese, note
+// Rows sharing an id become one question with multiple acceptable answers.
+function parseRows(rows){
+  let data = rows.filter(r => r.length >= 4 && r.some(c => (c||'').trim() !== ''));
+  if(data.length && /^id$/i.test((data[0][0]||'').trim())) data = data.slice(1);
+
+  const byId = new Map();
+  let skipped = 0;
+
+  data.forEach(r => {
+    const rawId  = (r[0]||'').trim();
+    const group  = (r[1]||'').trim();
+    const lesson = (r[2]||'').trim();
+    const en     = (r[3]||'').trim();
+    const ja     = (r[4]||'').trim();
+    const note   = (r[5]||'').trim();
+    if(!rawId || !en || !ja){ skipped++; return; }
+
+    const key = 'q_' + rawId;
+    if(!byId.has(key)){
+      byId.set(key, { key, rawId, group, lesson, ja, variants: [] });
+    }
+    const q = byId.get(key);
+    // First non-empty group/lesson wins
+    if(!q.group && group) q.group = group;
+    if(!q.lesson && lesson) q.lesson = lesson;
+    q.variants.push({ en, note });
+  });
+
+  parseRows.lastSkipped = skipped;
+  return [...byId.values()];
+}
+
+function loadQuestions(rows){
+  const parsed = parseRows(rows);
+  if(!parsed.length){
+    els.loadStatus.textContent = '読み込める行がありません。列の順序(id,group,lesson,english,japanese,note)を確認してください。';
     return;
   }
-  apiKey = val;
-  await store.set(API_KEY_STORE, val);
-  keyStatus.textContent = '✓ 保存しました';
-});
+  questions = parsed;
+  const variantTotal = questions.reduce((a,q) => a + q.variants.length, 0);
+  const multi = questions.filter(q => q.variants.length > 1).length;
+  let msg = `${questions.length} 問 / 答え ${variantTotal} 件を読み込みました。`;
+  if(multi) msg += ` (複数答えの問題: ${multi})`;
+  if(parseRows.lastSkipped) msg += ` (${parseRows.lastSkipped} 行スキップ)`;
+  els.loadStatus.textContent = msg;
 
-function getStats(id){
-  return progress[id] || { level: 0, correct: 0, wrong: 0, seen: 0 };
+  els.practiceArea.style.display = 'block';
+  els.emptyState.style.display = 'none';
+  queue = [];
+  updateStatBar();
+  nextQuestion();
 }
 
+els.fileInput.addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = () => loadQuestions(Papa.parse(decodeBytes(reader.result)).data);
+  reader.readAsArrayBuffer(f);
+});
+
+els.loadPasteBtn.addEventListener('click', () => {
+  const t = els.pasteArea.value.trim();
+  if(!t) return;
+  loadQuestions(Papa.parse(t).data);
+});
+
+// ===== Question selection =====
+function shuffle(a){
+  const x = a.slice();
+  for(let i = x.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [x[i], x[j]] = [x[j], x[i]];
+  }
+  return x;
+}
+
+// Weighted pick: lower mastery level -> more likely
+function pickWeighted(pool){
+  const weights = pool.map(q => Math.max(1, 5 - getStats(q.key).level));
+  const total = weights.reduce((a,b) => a + b, 0);
+  let r = Math.random() * total;
+  for(let i = 0; i < pool.length; i++){
+    r -= weights[i];
+    if(r <= 0) return pool[i];
+  }
+  return pool[pool.length - 1];
+}
+
+// Build the next run of questions. If the picked question belongs to a group,
+// queue up every question in that group (random order) before moving on.
+function refillQueue(){
+  let pool = questions;
+  if(questions.length > 1 && lastQKey){
+    const without = questions.filter(q => q.key !== lastQKey);
+    if(without.length) pool = without;
+  }
+  const picked = pickWeighted(pool);
+
+  if(picked.group){
+    const members = questions.filter(q => q.group === picked.group);
+    queue = shuffle(members).map(q => q.key);
+  } else {
+    queue = [picked.key];
+  }
+}
+
+function nextQuestion(){
+  if(!questions.length) return;
+  if(!queue.length) refillQueue();
+
+  const key = queue.shift();
+  currentQ = questions.find(q => q.key === key) || questions[0];
+  lastQKey = currentQ.key;
+
+  run = { saidIdx: [], attempt: 0, total: currentQ.variants.length, allCorrect: true };
+  renderQuestion();
+}
+
+function renderQuestion(){
+  els.jaPrompt.textContent = currentQ.ja;
+
+  const lv = getStats(currentQ.key).level;
+  els.lvlChip.textContent = 'Lv.' + lv;
+
+  if(currentQ.lesson){
+    els.lessonChip.textContent = 'Lesson ' + currentQ.lesson;
+    els.lessonChip.style.visibility = 'visible';
+  } else {
+    els.lessonChip.style.visibility = 'hidden';
+  }
+
+  if(currentQ.group){
+    els.groupChip.textContent = currentQ.group;
+    els.groupChip.className = 'chip group';
+    els.groupChip.style.visibility = 'visible';
+  } else {
+    els.groupChip.style.visibility = 'hidden';
+  }
+
+  if(run.total > 1){
+    els.variantCounter.textContent = `答え ${run.attempt + 1} / ${run.total}`;
+    if(run.attempt > 0) els.variantCounter.textContent += ' — 別の言い方で答えてください';
+  } else {
+    els.variantCounter.textContent = '';
+  }
+
+  els.resultBox.style.display = 'none';
+  els.nextRow.style.display = 'none';
+  els.statusLine.textContent = 'マイクボタンを押して話してください';
+  els.micBtn.style.display = 'block';
+  els.micBtn.disabled = false;
+  els.micBtn.textContent = '🎤 話す';
+  els.micBtn.classList.remove('on');
+}
+
+els.nextBtn.addEventListener('click', () => {
+  if(run && run.attempt < run.total){
+    renderQuestion();      // same question, next acceptable answer
+  } else {
+    updateStatBar();
+    nextQuestion();
+  }
+});
+
 function updateStatBar(){
-  statTotal.textContent = sentences.length;
+  els.statTotal.textContent = questions.length;
   let low = 0, high = 0;
-  sentences.forEach(s => {
-    const lv = getStats(s.id).level;
+  questions.forEach(q => {
+    const lv = getStats(q.key).level;
     if(lv === 0) low++;
     if(lv >= 4) high++;
   });
-  statLow.textContent = low;
-  statHigh.textContent = high;
+  els.statLow.textContent = low;
+  els.statHigh.textContent = high;
 }
 
-function pickNext(excludeId){
-  const weights = sentences.map(s => Math.max(1, 5 - getStats(s.id).level));
-  const total = weights.reduce((a,b)=>a+b,0);
-  let tries = 0;
-  while(tries < 8){
-    let r = Math.random() * total;
-    let idx = 0;
-    for(; idx < weights.length; idx++){
-      r -= weights[idx];
-      if(r <= 0) break;
-    }
-    idx = Math.min(idx, sentences.length-1);
-    if(sentences.length === 1 || sentences[idx].id !== excludeId){
-      return sentences[idx];
-    }
-    tries++;
-  }
-  return sentences[Math.floor(Math.random()*sentences.length)];
-}
-
-function loadSentences(rows){
-  const parsed = parseRows(rows);
-  if(parsed.length === 0){
-    loadStatus.textContent = '読み込める行がありません。1列目にid、2列目にenglish、3列目にjapaneseが必要です。';
-    return;
-  }
-  sentences = parsed;
-  let msg = `${sentences.length} 件読み込みました。`;
-  if(parseRows.lastSkipped){
-    msg += ` (ID未記入などで ${parseRows.lastSkipped} 行スキップ)`;
-  }
-  if(parseRows.lastDupes && parseRows.lastDupes.length){
-    msg += ` ⚠ ID重複: ${parseRows.lastDupes.slice(0,5).join(', ')}`;
-  }
-  loadStatus.textContent = msg;
-  practiceArea.style.display = 'block';
-  emptyState.style.display = 'none';
-  updateStatBar();
-  showNext();
-}
-
-// Decode raw bytes, auto-detecting UTF-8 vs Shift_JIS (ANSI on Japanese Windows).
-// Tries strict UTF-8 first; if the bytes aren't valid UTF-8, falls back to Shift_JIS.
-function decodeBytes(buffer){
-  const bytes = new Uint8Array(buffer);
-
-  // Strip UTF-8 BOM if present
-  if(bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF){
-    return new TextDecoder('utf-8').decode(bytes.subarray(3));
-  }
-
-  try{
-    // fatal:true throws if the bytes are not valid UTF-8
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-  }catch(e){
-    // Not valid UTF-8 -> assume Shift_JIS (ANSI)
-    return new TextDecoder('shift_jis').decode(bytes);
-  }
-}
-
-fileInput.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    const text = decodeBytes(reader.result);
-    const res = Papa.parse(text);
-    loadSentences(res.data);
-  };
-  reader.readAsArrayBuffer(file);
-});
-
-loadPasteBtn.addEventListener('click', () => {
-  const text = pasteArea.value.trim();
-  if(!text) return;
-  const res = Papa.parse(text);
-  loadSentences(res.data);
-});
-
-function showNext(){
-  const next = pickNext(currentId);
-  currentId = next.id;
-  jaPrompt.textContent = next.ja;
-  const lv = getStats(next.id).level;
-  lvlChip.textContent = 'Lv.' + lv;
-  resultBox.style.display = 'none';
-  nextRow.style.display = 'none';
-  statusLine.textContent = 'マイクボタンを押して話してください';
-  micBtn.style.display = 'block';
-  micBtn.disabled = false;
-  micBtn.textContent = '🎤 話す';
-  micBtn.classList.remove('on');
-}
-
-nextBtn.addEventListener('click', () => {
-  updateStatBar();
-  showNext();
-});
-
-// --- Text to speech (reference answer readout) ---
-const speakBtn = document.getElementById('speakBtn');
-const autoSpeak = document.getElementById('autoSpeak');
-const rateSelect = document.getElementById('rateSelect');
-const AUTOSPEAK_STORE = 'autospeak_v1';
-
+// ===== Text to speech =====
 let cachedVoice = null;
-
 function pickVoice(){
   if(cachedVoice) return cachedVoice;
   const voices = speechSynthesis.getVoices() || [];
   const en = voices.filter(v => /^en(-|_)/i.test(v.lang || ''));
   if(!en.length) return null;
-
-  // Prefer higher-quality voices where the platform exposes them
-  const score = (v) => {
+  const score = v => {
     let s = 0;
     const n = (v.name || '').toLowerCase();
-    if(/google/.test(n)) s += 5;          // Android/Chrome high quality
+    if(/google/.test(n)) s += 5;
     if(/natural|neural|enhanced|premium/.test(n)) s += 4;
-    if(/^en-us/i.test(v.lang)) s += 2;    // default to US English
+    if(/^en-us/i.test(v.lang)) s += 2;
     if(/^en-gb/i.test(v.lang)) s += 1;
-    if(v.localService === false) s += 1;  // network voices usually better
+    if(v.localService === false) s += 1;
     return s;
   };
-  cachedVoice = en.slice().sort((a, b) => score(b) - score(a))[0];
+  cachedVoice = en.slice().sort((a,b) => score(b) - score(a))[0];
   return cachedVoice;
 }
-
-// Voice list loads asynchronously in some browsers
 if(typeof speechSynthesis !== 'undefined'){
   speechSynthesis.onvoiceschanged = () => { cachedVoice = null; pickVoice(); };
   pickVoice();
 }
-
 function speakText(text){
   if(!text || typeof speechSynthesis === 'undefined') return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   const v = pickVoice();
   if(v){ u.voice = v; u.lang = v.lang; } else { u.lang = 'en-US'; }
-  u.rate = parseFloat(rateSelect.value) || 0.9;
-  u.pitch = 1.0;
+  u.rate = parseFloat(els.rateSelect.value) || 0.9;
   speechSynthesis.speak(u);
 }
-
-speakBtn.addEventListener('click', () => {
-  const s = sentences.find(x => x.id === currentId);
-  if(s) speakText(s.en);
+const AUTOSPEAK_STORE = 'autospeak_v1';
+els.autoSpeak.addEventListener('change', async () => {
+  await store.set(AUTOSPEAK_STORE, els.autoSpeak.checked ? '1' : '0');
 });
 
-autoSpeak.addEventListener('change', async () => {
-  await store.set(AUTOSPEAK_STORE, autoSpeak.checked ? '1' : '0');
-});
-
-// --- Speech recognition ---
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+// ===== Speech recognition =====
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
 let isRecording = false;
 
-if(SpeechRecognition){
-  recognition = new SpeechRecognition();
+if(SR){
+  recognition = new SR();
   recognition.lang = 'en-US';
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
-
-  recognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
-    handleTranscript(transcript);
-  };
-  recognition.onend = () => {
+  recognition.onresult = e => handleTranscript(e.results[0][0].transcript);
+  recognition.onend = () => { isRecording = false; els.waveform.classList.remove('active'); };
+  recognition.onerror = e => {
     isRecording = false;
-    waveform.classList.remove('active');
-  };
-  recognition.onerror = (e) => {
-    isRecording = false;
-    waveform.classList.remove('active');
-    micBtn.classList.remove('on');
-    micBtn.textContent = '🎤 話す';
+    els.waveform.classList.remove('active');
+    els.micBtn.classList.remove('on');
+    els.micBtn.textContent = '🎤 話す';
     if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
-      statusLine.textContent = 'マイクが許可されていません。ブラウザの権限設定を確認してください。';
+      els.statusLine.textContent = 'マイクが許可されていません。ブラウザの権限設定を確認してください。';
     } else if(e.error === 'no-speech'){
-      statusLine.textContent = '音声が検出されませんでした。もう一度お試しください。';
+      els.statusLine.textContent = '音声が検出されませんでした。もう一度お試しください。';
     } else {
-      statusLine.textContent = '認識エラーが発生しました。もう一度お試しください。';
+      els.statusLine.textContent = '認識エラーが発生しました。もう一度お試しください。';
     }
   };
 } else {
-  micBtn.disabled = true;
-  statusLine.textContent = 'このブラウザは音声認識に対応していません（Android版Chromeでお試しください）';
+  els.micBtn.disabled = true;
+  els.statusLine.textContent = 'このブラウザは音声認識に対応していません(Android版Chromeでお試しください)';
 }
 
-micBtn.addEventListener('click', () => {
-  if(!recognition || !sentences.length) return;
-  getAudioCtx(); // unlock audio on user gesture (required on mobile)
+els.micBtn.addEventListener('click', () => {
+  if(!recognition || !questions.length) return;
+  getAudioCtx(); // unlock audio on user gesture
   isRecording = true;
-  micBtn.classList.add('on');
-  micBtn.textContent = '■ 聞き取り中...';
-  waveform.classList.add('active');
-  statusLine.textContent = '聞き取り中...';
+  els.micBtn.classList.add('on');
+  els.micBtn.textContent = '■ 聞き取り中...';
+  els.waveform.classList.add('active');
+  els.statusLine.textContent = '聞き取り中...';
   animateWaveform();
-  try{ recognition.start(); }catch(err){ /* guard double start */ }
+  try{ recognition.start(); }catch(err){}
 });
 
 function animateWaveform(){
-  const bars = waveform.querySelectorAll('span');
   if(!isRecording) return;
-  bars.forEach(b => { b.style.height = (6 + Math.random()*24) + 'px'; });
+  els.waveform.querySelectorAll('span').forEach(b => {
+    b.style.height = (6 + Math.random() * 24) + 'px';
+  });
   requestAnimationFrame(() => setTimeout(() => { if(isRecording) animateWaveform(); }, 90));
 }
 
+// ===== Grading =====
 async function handleTranscript(transcript){
-  micBtn.style.display = 'none';
-  statusLine.textContent = 'AIが判定中...';
-  const sentence = sentences.find(s => s.id === currentId);
-  if(!sentence) return;
+  els.micBtn.style.display = 'none';
+  els.statusLine.textContent = 'AIが判定中...';
+  if(!currentQ) return;
+
+  const remaining = currentQ.variants
+    .map((v, i) => ({ ...v, idx: i }))
+    .filter(v => !run.saidIdx.includes(v.idx));
+  const said = currentQ.variants
+    .map((v, i) => ({ ...v, idx: i }))
+    .filter(v => run.saidIdx.includes(v.idx));
 
   try{
-    const gradeResult = await gradeAnswer(sentence, transcript);
-    showResult(sentence, transcript, gradeResult);
-    updateProgress(sentence.id, gradeResult.correct);
+    const result = await gradeAnswer(currentQ, transcript, remaining, said);
+    applyResult(transcript, result, remaining);
   }catch(err){
     console.error(err);
     let msg = '判定中にエラーが発生しました。もう一度お試しください。';
-    if(err.message === 'NO_API_KEY'){
-      msg = 'APIキーが未設定です。ページ上部の設定欄にキーを入力してください。';
-    } else if(err.message === 'API_400' || err.message === 'API_403'){
-      msg = 'APIキーが正しくないようです。設定欄を確認してください。';
-    } else if(err.message === 'API_429'){
-      msg = 'レート制限です。別のモデル(2.5-flash-lite等)に変えるか、1分ほど待ってお試しください。';
-    } else if(err.message === 'API_404'){
-      msg = 'このモデルは利用できません。設定欄で別のモデルを選んでください。';
-    }
-    if(err.detail){
-      msg += '\n[詳細] ' + err.detail;
-    }
-    statusLine.textContent = msg;
-    micBtn.style.display = 'block';
-    micBtn.disabled = false;
+    if(err.message === 'NO_API_KEY') msg = 'APIキーが未設定です。下の設定欄にキーを入力してください。';
+    else if(err.message === 'API_400' || err.message === 'API_403') msg = 'APIキーが正しくないようです。設定欄を確認してください。';
+    else if(err.message === 'API_429') msg = 'すべてのモデルが制限に達しました。しばらく待ってお試しください。';
+    else if(err.message === 'API_404') msg = 'モデルが利用できません。「使えるモデルを取得」を押してください。';
+    if(err.detail) msg += '\n[詳細] ' + err.detail;
+    els.statusLine.textContent = msg;
+    els.micBtn.style.display = 'block';
+    els.micBtn.disabled = false;
   }
 }
 
-async function gradeAnswer(sentence, transcript){
+async function gradeAnswer(q, transcript, remaining, said){
+  if(!apiKey) throw new Error('NO_API_KEY');
+
   const systemPrompt = `あなたは日本語→英語の口頭翻訳練習を採点するアシスタントです。
 ユーザーは日本語の文を見て、英語で口頭で翻訳を発話し、それが音声認識でテキスト化されています。
 
 【採点ルール】
-1. 意味が正しく伝わっていれば、模範解答と表現が違っていても「正解」としてください。
-2. 言い直し・言いよどみ(false start)は完全に無視してください。同じ語の繰り返し、途中で言い直した断片、
-   "um" "uh" "well" などのつなぎ語は、最初から無かったものとして扱い、言い直した後の最終的な発話内容だけで採点します。
+1. ユーザーの発話が「まだ言っていない模範解答」のいずれかと意味的に一致していれば正解(correct: true)です。
+   完全に同じ文である必要はなく、意味が同等であれば正解としてください。
+2. 「すでに言った答え」を繰り返した場合は correct: false とし、feedbackで「その表現はすでに答えました。別の言い方を考えてみましょう」と伝えてください。
+3. 言い直し・言いよどみ(false start)は完全に無視してください。同じ語の繰り返し、途中で言い直した断片、
+   "um" "uh" "well" などのつなぎ語は最初から無かったものとして扱い、最終的な発話内容だけで採点します。
    例:「I... I'm a student.」は「I'm a student.」として採点し、繰り返しには一切言及しないでください。
-3. 音声認識の誤変換と思われるもの(同音異義語の取り違えなど)は、意図が明らかであれば正解としてください。
-4. 句読点・大文字小文字の違いは無視してください(音声認識では区別できないため)。
-5. 文法の軽微な誤り(冠詞の抜け、三単現のsなど)は、意味が通じていれば正解としてください。
+4. 音声認識の誤変換と思われるもの(同音異義語の取り違えなど)は、意図が明らかであれば正解としてください。
+5. 句読点・大文字小文字の違いは無視してください(音声認識では区別できないため)。
+6. 文法の軽微な誤り(冠詞の抜け、三単現のsなど)は、意味が通じていれば正解としてください。
 
 【出力形式】
 必ず次のJSON形式のみで出力してください。他の文章は一切含めないでください。
-{"correct": true または false, "feedback": "日本語で1〜2文の短いコメント。模範解答と表現が違う場合はその違いを簡潔に指摘する。言い直しやつなぎ語については絶対に言及しない。"}`;
+{"correct": true または false, "matchedIndex": 一致した候補の番号(整数。一致しなければ -1), "feedback": "日本語で1〜2文の短いコメント。模範解答と表現が違う場合はその違いを簡潔に指摘する。言い直しやつなぎ語には絶対に言及しない。"}`;
 
-  const userPrompt = `日本語の原文: ${sentence.ja}
-模範解答: ${sentence.en}
+  const remainList = remaining.map((v, i) => `${i}: ${v.en}`).join('\n');
+  const saidList = said.length ? said.map(v => `- ${v.en}`).join('\n') : '(なし)';
+
+  const userPrompt = `日本語の原文: ${q.ja}
+
+まだ言っていない模範解答(この中のどれかと一致すれば正解。番号をmatchedIndexで返す):
+${remainList}
+
+すでに言った答え(これを繰り返した場合は不正解):
+${saidList}
+
 ユーザーの発話(音声認識結果): ${transcript}`;
-
-  if(!apiKey){
-    throw new Error('NO_API_KEY');
-  }
 
   return await gradeWithFallback(systemPrompt, userPrompt);
 }
 
-// Try the selected model, then fall back through other available models
-// when the free-tier quota for one is exhausted (429) or it is unavailable (404).
+// Try the selected model, then fall back to others when a model's free-tier
+// quota is exhausted (429) or it is unavailable (404).
 async function gradeWithFallback(systemPrompt, userPrompt){
-  const chain = [MODEL_ID].concat(
-    availableModels.filter(m => m !== MODEL_ID),
-    FALLBACK_MODELS.filter(m => m !== MODEL_ID && !availableModels.includes(m))
-  ).slice(0, 5);
+  const chain = [MODEL_ID]
+    .concat(availableModels.filter(m => m !== MODEL_ID))
+    .concat(FALLBACK_MODELS.filter(m => m !== MODEL_ID && !availableModels.includes(m)))
+    .slice(0, 5);
 
   let lastErr = null;
-  for(let i = 0; i < chain.length; i++){
-    const model = chain[i];
+  for(const model of chain){
     try{
       const result = await callModel(model, systemPrompt, userPrompt);
       if(model !== MODEL_ID){
-        // Remember the model that actually worked
         MODEL_ID = model;
-        modelSelect.value = model;
+        els.modelSelect.value = model;
         await store.set(MODEL_STORE, model);
-        keyStatus.textContent = `モデルを「${model}」に自動切替しました(前のモデルは制限に達したため)。`;
+        els.keyStatus.textContent = `モデルを「${model}」に自動切替しました(前のモデルが制限に達したため)。`;
       }
       return result;
     }catch(e){
       lastErr = e;
-      // Only worth trying another model for quota / availability problems
-      if(e.message !== 'API_429' && e.message !== 'API_404'){ throw e; }
-      statusLine.textContent = `${model} が使用できません。別のモデルを試しています...`;
+      if(e.message !== 'API_429' && e.message !== 'API_404') throw e;
+      els.statusLine.textContent = `${model} が使用できません。別のモデルを試しています...`;
     }
   }
   throw lastErr || new Error('API_UNKNOWN');
@@ -922,21 +759,13 @@ async function gradeWithFallback(systemPrompt, userPrompt){
 
 async function callModel(model, systemPrompt, userPrompt){
   const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent';
-
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey
-    },
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [ { role: 'user', parts: [{ text: userPrompt }] } ],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 300,
-        responseMimeType: 'application/json'
-      }
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 400, responseMimeType: 'application/json' }
     })
   });
 
@@ -944,111 +773,144 @@ async function callModel(model, systemPrompt, userPrompt){
     const errText = await response.text();
     console.error('Gemini API error:', response.status, errText);
     let detail = '';
-    try{
-      const ej = JSON.parse(errText);
-      detail = (ej.error && ej.error.message) ? ej.error.message : '';
-    }catch(e){ detail = errText.slice(0, 200); }
+    try{ const ej = JSON.parse(errText); detail = (ej.error && ej.error.message) || ''; }
+    catch(e){ detail = errText.slice(0, 200); }
     const err = new Error('API_' + response.status);
     err.detail = detail;
     throw err;
   }
 
   const data = await response.json();
-  const text = (((data.candidates || [])[0] || {}).content || {}).parts
-      ?.map(p => p.text || '').join('') || '';
-  const cleaned = text.replace(/```json|```/g, '').trim();
-  return JSON.parse(cleaned);
+  const parts = (((data.candidates || [])[0] || {}).content || {}).parts || [];
+  const text = parts.map(p => p.text || '').join('');
+  return JSON.parse(text.replace(/```json|```/g, '').trim());
 }
 
-function showResult(sentence, transcript, gradeResult){
-  statusLine.textContent = '';
-  resultBox.style.display = 'block';
-  nextRow.style.display = 'block';
+// ===== Result display =====
+function applyResult(transcript, result, remaining){
+  els.statusLine.textContent = '';
+  els.resultBox.style.display = 'block';
+  els.nextRow.style.display = 'block';
 
-  badge.textContent = gradeResult.correct ? '正解' : '不正解';
-  badge.className = 'badge ' + (gradeResult.correct ? 'correct' : 'wrong');
+  const correct = !!result.correct;
 
-  if(gradeResult.correct){ playCorrect(); } else { playWrong(); }
-
-  heardText.textContent = `"${transcript}"`;
-  feedbackText.textContent = gradeResult.feedback || '';
-  refEn.textContent = sentence.en;
-
-  if(sentence.note){
-    refNote.style.display = 'block';
-    refNote.textContent = sentence.note;
-  } else {
-    refNote.style.display = 'none';
-  }
-
-  if(autoSpeak.checked){
-    // wait for the result chime to finish before reading the answer
-    setTimeout(() => speakText(sentence.en), 750);
-  }
-}
-
-function updateProgress(id, correct){
-  const s = getStats(id);
-  s.seen += 1;
+  // Resolve which acceptable answer the user actually produced
+  let matched = null;
   if(correct){
-    s.correct += 1;
-    s.level = Math.min(4, s.level + 1);
-  } else {
-    s.wrong += 1;
-    s.level = 0;
+    const mi = Number.isInteger(result.matchedIndex) ? result.matchedIndex : -1;
+    matched = (mi >= 0 && mi < remaining.length) ? remaining[mi] : remaining[0];
+    if(matched) run.saidIdx.push(matched.idx);
   }
-  progress[id] = s;
+  if(!correct) run.allCorrect = false;
+
+  els.badge.textContent = correct ? '正解' : '不正解';
+  els.badge.className = 'badge ' + (correct ? 'correct' : 'wrong');
+  correct ? playCorrect() : playWrong();
+
+  els.heardText.textContent = `"${transcript}"`;
+  els.feedbackText.textContent = result.feedback || '';
+
+  renderAnswerList(matched);
+
+  run.attempt++;
+  const finished = run.attempt >= run.total;
+  els.nextBtn.textContent = finished ? '次の問題へ →' : '次の答えへ →';
+
+  if(finished){
+    updateProgress(currentQ.key, run.allCorrect);
+  }
+
+  if(els.autoSpeak.checked){
+    const toSpeak = matched ? matched.en : (remaining[0] && remaining[0].en);
+    if(toSpeak) setTimeout(() => speakText(toSpeak), 750);
+  }
+}
+
+function renderAnswerList(matched){
+  els.answerList.innerHTML = '';
+  currentQ.variants.forEach((v, i) => {
+    const said = run.saidIdx.includes(i);
+    const isMatched = matched && matched.idx === i;
+
+    const item = document.createElement('div');
+    item.className = 'ans-item' + (said ? ' said' : '') + (isMatched ? ' matched' : '');
+
+    const mark = document.createElement('div');
+    mark.className = 'ans-mark';
+    mark.textContent = said ? '✓' : '·';
+    item.appendChild(mark);
+
+    const main = document.createElement('div');
+    main.className = 'ans-main';
+    const en = document.createElement('div');
+    en.className = 'ans-en';
+    en.textContent = v.en;
+    main.appendChild(en);
+    if(v.note){
+      const note = document.createElement('div');
+      note.className = 'ans-note';
+      note.textContent = v.note;
+      main.appendChild(note);
+    }
+    item.appendChild(main);
+
+    const btn = document.createElement('button');
+    btn.className = 'ans-speak';
+    btn.textContent = '🔊';
+    btn.title = '読み上げ';
+    btn.addEventListener('click', () => speakText(v.en));
+    item.appendChild(btn);
+
+    els.answerList.appendChild(item);
+  });
+}
+
+function updateProgress(key, correct){
+  const s = getStats(key);
+  s.seen += 1;
+  if(correct){ s.correct += 1; s.level = Math.min(4, s.level + 1); }
+  else { s.wrong += 1; s.level = 0; }
+  progress[key] = s;
   saveProgress();
 }
 
-exportBtn.addEventListener('click', () => {
-  const rows = [['id','english','japanese','note','level','correct','wrong','seen']];
-  sentences.forEach(s => {
-    const st = getStats(s.id);
-    rows.push([s.rawId, s.en, s.ja, s.note || '', st.level, st.correct, st.wrong, st.seen]);
+// ===== Export =====
+els.exportBtn.addEventListener('click', () => {
+  const rows = [['id','group','lesson','english','japanese','note','level','correct','wrong','seen']];
+  questions.forEach(q => {
+    const st = getStats(q.key);
+    q.variants.forEach(v => {
+      rows.push([q.rawId, q.group, q.lesson, v.en, q.ja, v.note, st.level, st.correct, st.wrong, st.seen]);
+    });
   });
-  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = 'progress_export.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.href = url; a.download = 'progress_export.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
 
-// init
-(async function autoInit(){
+// ===== Init =====
+(async function init(){
   await loadProgress();
   await loadApiKey();
-
   const as = await store.get(AUTOSPEAK_STORE);
-  if(as === '1') autoSpeak.checked = true;
+  if(as === '1') els.autoSpeak.checked = true;
 
   if(typeof window.EMBEDDED_CSV === 'string' && window.EMBEDDED_CSV.trim()){
-    const res = Papa.parse(window.EMBEDDED_CSV.trim());
-    loadSentences(res.data);
-    loadStatus.textContent = 'english_data.js から自動読み込みしました。';
+    loadQuestions(Papa.parse(window.EMBEDDED_CSV.trim()).data);
+    els.loadStatus.textContent += ' (english_data.js から自動読み込み)';
     return;
   }
-
-  // Fallback: try fetching english.csv directly (works if hosted via http/https,
-  // usually blocked under file:// but harmless to attempt)
   try{
-    // cache-bust so CSV edits show up on reload
     const resp = await fetch('english.csv?t=' + Date.now(), { cache: 'no-store' });
     if(resp.ok){
-      const buf = await resp.arrayBuffer();
-      const text = decodeBytes(buf);
-      const res = Papa.parse(text);
-      loadSentences(res.data);
-      loadStatus.textContent = 'english.csv から自動読み込みしました。';
+      loadQuestions(Papa.parse(decodeBytes(await resp.arrayBuffer())).data);
+      els.loadStatus.textContent += ' (english.csv から自動読み込み)';
     }
-  }catch(e){
-    // no auto data available - manual import panel stays visible
-  }
+  }catch(e){ /* manual import stays available */ }
 })();
 </script>
 </body>
