@@ -202,11 +202,12 @@
   <div class="panel" id="importPanel">
     <h2>CSVを読み込む</h2>
     <div class="row" style="margin-bottom:10px;">
-      <input type="file" id="fileInput" accept=".csv,text/csv,text/plain,text/comma-separated-values,application/csv,application/vnd.ms-excel,*/*">
+      <input type="file" id="fileInput" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,*/*">
     </div>
     <div style="font-size:12px;color:var(--muted);margin:6px 0 4px;">
-      列: <b>id, group, lesson, english, japanese, note</b><br>
-      idは必須。groupとnoteは空欄可。カンマ区切り/タブ区切りどちらも可。
+      列: <b>id, group, lesson, english, japanese, note</b>(1行目は見出し)<br>
+      idは必須。groupとnoteは空欄可。<b>.xlsx</b>(Sheet1)または.csvを読み込めます。
+      xlsxの場合は文字色・太字・斜体・下線がそのまま表示に反映されます。
     </div>
     <textarea id="pasteArea" placeholder="id,group,lesson,english,japanese,note&#10;1,,1,It took me forever.,すごく時間がかかった,&#10;4,挨拶,1,How are you?,お元気ですか,&#10;4,挨拶,1,How's it going?,お元気ですか,"></textarea>
     <div class="row" style="margin-top:10px;">
@@ -223,10 +224,11 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v2.0';
+const APP_VERSION = 'v2.1';
 const APP_UPDATED = '2026-07-31';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
@@ -386,6 +388,84 @@ async function loadApiKey(){
   else { els.keyStatus.textContent = 'APIキーが未設定です。'; }
 }
 
+// ===== Rich text (xlsx font colours) =====
+// A "cell" is either a plain string (CSV) or an array of runs (xlsx).
+function argbToCss(argb){
+  if(!argb || typeof argb !== 'string') return null;
+  const hex = argb.length === 8 ? argb.slice(2) : argb;
+  if(!/^[0-9A-Fa-f]{6}$/.test(hex)) return null;
+  if(/^0{6}$/i.test(hex)) return null;   // plain black = default colour
+  return '#' + hex.toLowerCase();
+}
+
+function asRuns(cell){
+  if(Array.isArray(cell)) return cell;
+  return [{ text: String(cell == null ? '' : cell) }];
+}
+function runsText(runs){ return asRuns(runs).map(r => r.text || '').join(''); }
+
+function escapeHtml(t){
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Build safe HTML from runs, carrying colour/bold/italic/underline through.
+function runsToHtml(runs){
+  return asRuns(runs).map(r => {
+    const txt = escapeHtml(r.text || '');
+    const styles = [];
+    if(r.color) styles.push('color:' + r.color);
+    if(r.bold) styles.push('font-weight:700');
+    if(r.italic) styles.push('font-style:italic');
+    if(r.underline) styles.push('text-decoration:underline');
+    return styles.length ? `<span style="${styles.join(';')}">${txt}</span>` : txt;
+  }).join('');
+}
+
+function setRich(el, runs){ el.innerHTML = runsToHtml(runs); }
+
+// Convert one ExcelJS cell into runs
+function cellToRuns(cell){
+  const v = cell.value;
+  if(v && typeof v === 'object' && Array.isArray(v.richText)){
+    return v.richText.map(r => ({
+      text: r.text || '',
+      color: argbToCss(r.font && r.font.color && r.font.color.argb),
+      bold: !!(r.font && r.font.bold),
+      italic: !!(r.font && r.font.italic),
+      underline: !!(r.font && r.font.underline)
+    }));
+  }
+  let text = '';
+  if(v === null || v === undefined) text = '';
+  else if(typeof v === 'object' && v.text !== undefined) text = v.text;
+  else if(typeof v === 'object' && v.result !== undefined) text = String(v.result);
+  else if(typeof v === 'object' && v.hyperlink) text = v.text || '';
+  else text = String(v);
+  const f = cell.font || {};
+  return [{
+    text,
+    color: argbToCss(f.color && f.color.argb),
+    bold: !!f.bold, italic: !!f.italic, underline: !!f.underline
+  }];
+}
+
+// Read Sheet1 of an .xlsx into rows of runs
+async function readXlsx(arrayBuffer){
+  if(typeof ExcelJS === 'undefined') throw new Error('EXCELJS_MISSING');
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(arrayBuffer);
+  const ws = wb.getWorksheet('Sheet1') || wb.worksheets[0];
+  if(!ws) throw new Error('NO_SHEET');
+  const rows = [];
+  ws.eachRow({ includeEmpty: false }, row => {
+    const cells = [];
+    for(let c = 1; c <= 6; c++) cells.push(cellToRuns(row.getCell(c)));
+    rows.push(cells);
+  });
+  return rows;
+}
+
 // ===== CSV parsing =====
 function decodeBytes(buffer){
   const bytes = new Uint8Array(buffer);
@@ -399,30 +479,33 @@ function decodeBytes(buffer){
 // Rows: id, group, lesson, english, japanese, note
 // Rows sharing an id become one question with multiple acceptable answers.
 function parseRows(rows){
-  let data = rows.filter(r => r.length >= 4 && r.some(c => (c||'').trim() !== ''));
-  if(data.length && /^id$/i.test((data[0][0]||'').trim())) data = data.slice(1);
+  let data = rows.filter(r => r.length >= 4 && r.some(c => runsText(c).trim() !== ''));
+  if(data.length && /^id$/i.test(runsText(data[0][0]).trim())) data = data.slice(1);
 
   const byId = new Map();
   let skipped = 0;
 
   data.forEach(r => {
-    const rawId  = (r[0]||'').trim();
-    const group  = (r[1]||'').trim();
-    const lesson = (r[2]||'').trim();
-    const en     = (r[3]||'').trim();
-    const ja     = (r[4]||'').trim();
-    const note   = (r[5]||'').trim();
+    const rawId  = runsText(r[0]).trim();
+    const group  = runsText(r[1]).trim();
+    const lesson = runsText(r[2]).trim();
+    const enRuns   = asRuns(r[3]);
+    const jaRuns   = asRuns(r[4]);
+    const noteRuns = asRuns(r[5]);
+    const en   = runsText(enRuns).trim();
+    const ja   = runsText(jaRuns).trim();
+    const note = runsText(noteRuns).trim();
     if(!rawId || !en || !ja){ skipped++; return; }
 
     const key = 'q_' + rawId;
     if(!byId.has(key)){
-      byId.set(key, { key, rawId, group, lesson, ja, variants: [] });
+      byId.set(key, { key, rawId, group, lesson, ja, jaRuns, variants: [] });
     }
     const q = byId.get(key);
     // First non-empty group/lesson wins
     if(!q.group && group) q.group = group;
     if(!q.lesson && lesson) q.lesson = lesson;
-    q.variants.push({ en, note });
+    q.variants.push({ en, enRuns, note, noteRuns });
   });
 
   parseRows.lastSkipped = skipped;
@@ -450,11 +533,29 @@ function loadQuestions(rows){
   nextQuestion();
 }
 
+function looksLikeXlsx(name, buffer){
+  if(/\.xlsx$/i.test(name || '')) return true;
+  const b = new Uint8Array(buffer);
+  // xlsx files are zip archives: "PK\x03\x04"
+  return b.length > 3 && b[0] === 0x50 && b[1] === 0x4B && b[2] === 0x03 && b[3] === 0x04;
+}
+
 els.fileInput.addEventListener('change', (e) => {
   const f = e.target.files[0];
   if(!f) return;
   const reader = new FileReader();
-  reader.onload = () => loadQuestions(Papa.parse(decodeBytes(reader.result)).data);
+  reader.onload = async () => {
+    try{
+      if(looksLikeXlsx(f.name, reader.result)){
+        loadQuestions(await readXlsx(reader.result));
+      } else {
+        loadQuestions(Papa.parse(decodeBytes(reader.result)).data);
+      }
+    }catch(err){
+      console.error(err);
+      els.loadStatus.textContent = 'ファイルの読み込みに失敗しました: ' + err.message;
+    }
+  };
   reader.readAsArrayBuffer(f);
 });
 
@@ -517,7 +618,7 @@ function nextQuestion(){
 }
 
 function renderQuestion(){
-  els.jaPrompt.textContent = currentQ.ja;
+  setRich(els.jaPrompt, currentQ.jaRuns || currentQ.ja);
 
   const lv = getStats(currentQ.key).level;
   els.lvlChip.textContent = 'Lv.' + lv;
@@ -844,12 +945,12 @@ function renderAnswerList(matched){
     main.className = 'ans-main';
     const en = document.createElement('div');
     en.className = 'ans-en';
-    en.textContent = v.en;
+    setRich(en, v.enRuns || v.en);
     main.appendChild(en);
     if(v.note){
       const note = document.createElement('div');
       note.className = 'ans-note';
-      note.textContent = v.note;
+      setRich(note, v.noteRuns || v.note);
       main.appendChild(note);
     }
     item.appendChild(main);
@@ -904,6 +1005,16 @@ els.exportBtn.addEventListener('click', () => {
     els.loadStatus.textContent += ' (english_data.js から自動読み込み)';
     return;
   }
+  // Prefer english.xlsx (keeps font colours); fall back to english.csv
+  try{
+    const rx = await fetch('english.xlsx?t=' + Date.now(), { cache: 'no-store' });
+    if(rx.ok){
+      loadQuestions(await readXlsx(await rx.arrayBuffer()));
+      els.loadStatus.textContent += ' (english.xlsx から自動読み込み)';
+      return;
+    }
+  }catch(e){ /* fall through to CSV */ }
+
   try{
     const resp = await fetch('english.csv?t=' + Date.now(), { cache: 'no-store' });
     if(resp.ok){
