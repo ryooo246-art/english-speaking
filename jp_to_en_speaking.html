@@ -213,7 +213,7 @@
     <div class="row" style="margin-top:10px;">
       <button class="ghost" id="loadPasteBtn">貼り付けたテキストを読み込む</button>
     </div>
-    <div id="loadStatus" style="font-size:12px;color:var(--muted);margin-top:6px;"></div>
+    <div id="loadStatus" style="font-size:12px;color:var(--muted);margin-top:6px;white-space:pre-wrap;line-height:1.6;"></div>
   </div>
 
   <footer>
@@ -228,7 +228,7 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v2.1';
+const APP_VERSION = 'v2.2';
 const APP_UPDATED = '2026-07-31';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
@@ -512,6 +512,19 @@ function parseRows(rows){
   return [...byId.values()];
 }
 
+let lastSource = '';
+
+function countStyled(qs){
+  let n = 0;
+  qs.forEach(q => {
+    const all = [q.jaRuns].concat(q.variants.map(v => v.enRuns), q.variants.map(v => v.noteRuns));
+    all.forEach(runs => {
+      if(asRuns(runs).some(r => r.color || r.bold || r.italic || r.underline)) n++;
+    });
+  });
+  return n;
+}
+
 function loadQuestions(rows){
   const parsed = parseRows(rows);
   if(!parsed.length){
@@ -524,6 +537,11 @@ function loadQuestions(rows){
   let msg = `${questions.length} 問 / 答え ${variantTotal} 件を読み込みました。`;
   if(multi) msg += ` (複数答えの問題: ${multi})`;
   if(parseRows.lastSkipped) msg += ` (${parseRows.lastSkipped} 行スキップ)`;
+  const styled = countStyled(questions);
+  msg += `\n読み込み元: ${lastSource || '不明'} / 書式付きセル: ${styled} 件`;
+  if(lastSource.endsWith('.csv') && styled === 0){
+    msg += '\n⚠ CSVから読み込んだため、色や太字は反映されません。';
+  }
   els.loadStatus.textContent = msg;
 
   els.practiceArea.style.display = 'block';
@@ -547,8 +565,10 @@ els.fileInput.addEventListener('change', (e) => {
   reader.onload = async () => {
     try{
       if(looksLikeXlsx(f.name, reader.result)){
+        lastSource = f.name || 'xlsx';
         loadQuestions(await readXlsx(reader.result));
       } else {
+        lastSource = f.name || 'csv';
         loadQuestions(Papa.parse(decodeBytes(reader.result)).data);
       }
     }catch(err){
@@ -1006,22 +1026,35 @@ els.exportBtn.addEventListener('click', () => {
     return;
   }
   // Prefer english.xlsx (keeps font colours); fall back to english.csv
+  let xlsxProblem = '';
   try{
     const rx = await fetch('english.xlsx?t=' + Date.now(), { cache: 'no-store' });
     if(rx.ok){
-      loadQuestions(await readXlsx(await rx.arrayBuffer()));
-      els.loadStatus.textContent += ' (english.xlsx から自動読み込み)';
-      return;
+      if(typeof ExcelJS === 'undefined'){
+        xlsxProblem = 'ExcelJSライブラリを読み込めませんでした(通信環境やCDNブロックの可能性)。';
+      } else {
+        lastSource = 'english.xlsx';
+        loadQuestions(await readXlsx(await rx.arrayBuffer()));
+        return;
+      }
+    } else {
+      xlsxProblem = `english.xlsx が見つかりません (HTTP ${rx.status})。`;
     }
-  }catch(e){ /* fall through to CSV */ }
+  }catch(e){
+    xlsxProblem = 'english.xlsx の読み込みに失敗: ' + e.message;
+  }
 
   try{
     const resp = await fetch('english.csv?t=' + Date.now(), { cache: 'no-store' });
     if(resp.ok){
+      lastSource = 'english.csv';
       loadQuestions(Papa.parse(decodeBytes(await resp.arrayBuffer())).data);
-      els.loadStatus.textContent += ' (english.csv から自動読み込み)';
+      if(xlsxProblem) els.loadStatus.textContent += '\n⚠ ' + xlsxProblem;
+      return;
     }
   }catch(e){ /* manual import stays available */ }
+
+  if(xlsxProblem) els.loadStatus.textContent = '⚠ ' + xlsxProblem;
 })();
 </script>
 </body>
