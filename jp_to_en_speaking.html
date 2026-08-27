@@ -78,6 +78,7 @@
   .ans-en{font-family:var(--serif);font-size:17px;line-height:1.4;}
   .ans-item.said .ans-en{color:var(--muted);}
   .ans-item.matched{background:var(--accent-dim);border-radius:5px;padding-left:8px;padding-right:8px;}
+  .ans-item.hidden-ans .ans-en{color:var(--paper-line);font-style:italic;letter-spacing:2px;}
   .ans-note{font-size:12px;color:var(--muted);margin-top:3px;padding-left:9px;border-left:2px solid var(--paper-line);line-height:1.5;}
   .ans-speak{background:none;border:none;font-size:15px;padding:2px 6px;min-height:auto;cursor:pointer;color:var(--ink);flex-shrink:0;}
 
@@ -122,6 +123,11 @@
       </div>
 
       <button class="mic" id="micBtn">🎤 話す</button>
+      <div class="row" style="justify-content:center;margin-top:10px;">
+        <button class="ghost" id="giveUpBtn" style="font-size:12px;padding:8px 16px;min-height:auto;">
+          わからない (give up)
+        </button>
+      </div>
 
       <div class="result" id="resultBox" style="display:none;">
         <span class="badge" id="badge"></span>
@@ -228,8 +234,8 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v2.2';
-const APP_UPDATED = '2026-07-31';
+const APP_VERSION = 'v2.3';
+const APP_UPDATED = '2026-08-01';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
 // ===== Sound effects =====
@@ -273,7 +279,7 @@ const PROGRESS_KEY = 'jp_en_progress_v2';
 const els = {};
 ['fileInput','pasteArea','loadPasteBtn','loadStatus','practiceArea','emptyState',
  'jaPrompt','lvlChip','lessonChip','groupChip','variantCounter','statusLine','micBtn',
- 'waveform','resultBox','badge','heardText','feedbackText','answerList','nextRow','nextBtn',
+ 'waveform','resultBox','badge','heardText','feedbackText','answerList','nextRow','nextBtn','giveUpBtn',
  'exportBtn','statTotal','statLow','statHigh','apiKeyInput','saveKeyBtn','keyStatus',
  'modelSelect','listModelsBtn','autoSpeak','rateSelect'].forEach(id => els[id] = document.getElementById(id));
 
@@ -672,6 +678,7 @@ function renderQuestion(){
   els.micBtn.disabled = false;
   els.micBtn.textContent = '🎤 話す';
   els.micBtn.classList.remove('on');
+  els.giveUpBtn.style.display = '';
 }
 
 els.nextBtn.addEventListener('click', () => {
@@ -810,6 +817,7 @@ async function handleTranscript(transcript){
     els.statusLine.textContent = msg;
     els.micBtn.style.display = 'block';
     els.micBtn.disabled = false;
+    els.giveUpBtn.style.display = '';
   }
 }
 
@@ -912,6 +920,7 @@ function applyResult(transcript, result, remaining){
   els.statusLine.textContent = '';
   els.resultBox.style.display = 'block';
   els.nextRow.style.display = 'block';
+  els.giveUpBtn.style.display = 'none';
 
   const correct = !!result.correct;
 
@@ -931,10 +940,13 @@ function applyResult(transcript, result, remaining){
   els.heardText.textContent = `"${transcript}"`;
   els.feedbackText.textContent = result.feedback || '';
 
-  renderAnswerList(matched);
-
   run.attempt++;
   const finished = run.attempt >= run.total;
+
+  // Unanswered variants stay hidden until the run is over, so the next
+  // acceptable answer isn't given away.
+  renderAnswerList(matched, finished);
+
   els.nextBtn.textContent = finished ? '次の問題へ →' : '次の答えへ →';
 
   if(finished){
@@ -947,14 +959,16 @@ function applyResult(transcript, result, remaining){
   }
 }
 
-function renderAnswerList(matched){
+function renderAnswerList(matched, revealAll){
   els.answerList.innerHTML = '';
   currentQ.variants.forEach((v, i) => {
     const said = run.saidIdx.includes(i);
     const isMatched = matched && matched.idx === i;
+    const visible = said || isMatched || revealAll;
 
     const item = document.createElement('div');
-    item.className = 'ans-item' + (said ? ' said' : '') + (isMatched ? ' matched' : '');
+    item.className = 'ans-item' + (said ? ' said' : '') + (isMatched ? ' matched' : '')
+                   + (visible ? '' : ' hidden-ans');
 
     const mark = document.createElement('div');
     mark.className = 'ans-mark';
@@ -965,9 +979,13 @@ function renderAnswerList(matched){
     main.className = 'ans-main';
     const en = document.createElement('div');
     en.className = 'ans-en';
-    setRich(en, v.enRuns || v.en);
+    if(visible){
+      setRich(en, v.enRuns || v.en);
+    } else {
+      en.textContent = '● ● ● ● ●';   // kept hidden so the next answer isn't spoiled
+    }
     main.appendChild(en);
-    if(v.note){
+    if(visible && v.note){
       const note = document.createElement('div');
       note.className = 'ans-note';
       setRich(note, v.noteRuns || v.note);
@@ -975,16 +993,57 @@ function renderAnswerList(matched){
     }
     item.appendChild(main);
 
-    const btn = document.createElement('button');
-    btn.className = 'ans-speak';
-    btn.textContent = '🔊';
-    btn.title = '読み上げ';
-    btn.addEventListener('click', () => speakText(v.en));
-    item.appendChild(btn);
+    if(visible){
+      const btn = document.createElement('button');
+      btn.className = 'ans-speak';
+      btn.textContent = '🔊';
+      btn.title = '読み上げ';
+      btn.addEventListener('click', () => speakText(v.en));
+      item.appendChild(btn);
+    }
 
     els.answerList.appendChild(item);
   });
+
+  const hiddenCount = currentQ.variants.filter((v, i) =>
+    !(run.saidIdx.includes(i) || (matched && matched.idx === i) || revealAll)).length;
+  if(hiddenCount){
+    const nleft = document.createElement('div');
+    nleft.style.cssText = 'font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono);';
+    nleft.textContent = `残り ${hiddenCount} 件は、この問題が終わったら表示されます`;
+    els.answerList.appendChild(nleft);
+  }
 }
+
+els.giveUpBtn.addEventListener('click', () => {
+  if(!currentQ || !run) return;
+  if(isRecording){ try{ recognition.stop(); }catch(e){} isRecording = false; }
+  getAudioCtx();
+
+  els.statusLine.textContent = '';
+  els.micBtn.style.display = 'none';
+  els.giveUpBtn.style.display = 'none';
+  els.resultBox.style.display = 'block';
+  els.nextRow.style.display = 'block';
+
+  run.allCorrect = false;
+  run.attempt = run.total;          // giving up ends this question outright
+
+  els.badge.textContent = 'ギブアップ';
+  els.badge.className = 'badge wrong';
+  playWrong();
+
+  els.heardText.textContent = '(回答なし)';
+  els.feedbackText.textContent = '答えを確認して、声に出して練習してみましょう。';
+
+  renderAnswerList(null, true);     // reveal everything
+  els.nextBtn.textContent = '次の問題へ →';
+  updateProgress(currentQ.key, false);
+
+  if(els.autoSpeak.checked && currentQ.variants[0]){
+    setTimeout(() => speakText(currentQ.variants[0].en), 750);
+  }
+});
 
 function updateProgress(key, correct){
   const s = getStats(key);
