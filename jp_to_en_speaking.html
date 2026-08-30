@@ -234,7 +234,7 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v2.3';
+const APP_VERSION = 'v2.4';
 const APP_UPDATED = '2026-08-01';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
@@ -726,10 +726,21 @@ if(typeof speechSynthesis !== 'undefined'){
   speechSynthesis.onvoiceschanged = () => { cachedVoice = null; pickVoice(); };
   pickVoice();
 }
+// "That's great[wonderful/awesome]!" -> "That's great!"
+// Bracketed text lists interchangeable alternatives, so it is not read aloud.
+function stripAlternatives(text){
+  return String(text || '')
+    .replace(/[\[［][^\]］]*[\]］]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.!?;:])/g, '$1')
+    .trim();
+}
+
 function speakText(text){
-  if(!text || typeof speechSynthesis === 'undefined') return;
+  const spoken = stripAlternatives(text);
+  if(!spoken || typeof speechSynthesis === 'undefined') return;
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
+  const u = new SpeechSynthesisUtterance(spoken);
   const v = pickVoice();
   if(v){ u.voice = v; u.lang = v.lang; } else { u.lang = 'en-US'; }
   u.rate = parseFloat(els.rateSelect.value) || 0.9;
@@ -837,6 +848,9 @@ async function gradeAnswer(q, transcript, remaining, said){
 4. 音声認識の誤変換と思われるもの(同音異義語の取り違えなど)は、意図が明らかであれば正解としてください。
 5. 句読点・大文字小文字の違いは無視してください(音声認識では区別できないため)。
 6. 文法の軽微な誤り(冠詞の抜け、三単現のsなど)は、意味が通じていれば正解としてください。
+7. 模範解答の [ ] 内は「直前の語と置き換え可能な別の言い方」を示す記法です。スラッシュ区切りで複数の候補が入ります。
+   例:「That's great[wonderful/awesome]!」は「That's great!」「That's wonderful!」「That's awesome!」のいずれも正解です。
+   ユーザーがどの候補を使っていても正解としてください。
 
 【出力形式】
 必ず次のJSON形式のみで出力してください。他の文章は一切含めないでください。
