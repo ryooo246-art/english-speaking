@@ -106,6 +106,14 @@
       <div>習得(Lv4) <b id="statHigh">0</b></div>
     </div>
 
+    <div class="row" style="margin-bottom:12px;">
+      <button class="ghost" id="handsFreeBtn" style="flex:1;">🙌 ハンズフリー開始</button>
+    </div>
+    <div id="hfStatus" style="display:none;font-family:var(--mono);font-size:11px;color:var(--accent);
+         text-align:center;margin-bottom:12px;padding:6px;background:var(--accent-dim);border-radius:4px;">
+      ハンズフリー中 — 「つぎ」でスキップ / 次へ
+    </div>
+
     <div class="card">
       <div class="chips">
         <span class="chip" id="lessonChip" style="visibility:hidden;">Lesson –</span>
@@ -234,8 +242,8 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v2.4';
-const APP_UPDATED = '2026-08-01';
+const APP_VERSION = 'v2.5';
+const APP_UPDATED = '2026-08-02';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
 // ===== Sound effects =====
@@ -280,7 +288,7 @@ const els = {};
 ['fileInput','pasteArea','loadPasteBtn','loadStatus','practiceArea','emptyState',
  'jaPrompt','lvlChip','lessonChip','groupChip','variantCounter','statusLine','micBtn',
  'waveform','resultBox','badge','heardText','feedbackText','answerList','nextRow','nextBtn','giveUpBtn',
- 'exportBtn','statTotal','statLow','statHigh','apiKeyInput','saveKeyBtn','keyStatus',
+ 'exportBtn','statTotal','statLow','statHigh','apiKeyInput','saveKeyBtn','keyStatus','handsFreeBtn','hfStatus',
  'modelSelect','listModelsBtn','autoSpeak','rateSelect'].forEach(id => els[id] = document.getElementById(id));
 
 // ===== Storage shim (window.storage in artifacts, localStorage elsewhere) =====
@@ -682,12 +690,14 @@ function renderQuestion(){
 }
 
 els.nextBtn.addEventListener('click', () => {
+  stopListening();
   if(run && run.attempt < run.total){
     renderQuestion();      // same question, next acceptable answer
   } else {
     updateStatBar();
     nextQuestion();
   }
+  if(handsFree) startListening('answer');
 });
 
 function updateStatBar(){
@@ -736,20 +746,145 @@ function stripAlternatives(text){
     .trim();
 }
 
-function speakText(text){
+function speakText(text, onDone){
   const spoken = stripAlternatives(text);
-  if(!spoken || typeof speechSynthesis === 'undefined') return;
+  if(!spoken || typeof speechSynthesis === 'undefined'){ if(typeof onDone === 'function') onDone(); return; }
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(spoken);
   const v = pickVoice();
   if(v){ u.voice = v; u.lang = v.lang; } else { u.lang = 'en-US'; }
   u.rate = parseFloat(els.rateSelect.value) || 0.9;
+  if(typeof onDone === 'function'){
+    u.onend = onDone;
+    u.onerror = onDone;
+  }
   speechSynthesis.speak(u);
 }
 const AUTOSPEAK_STORE = 'autospeak_v1';
 els.autoSpeak.addEventListener('change', async () => {
   await store.set(AUTOSPEAK_STORE, els.autoSpeak.checked ? '1' : '0');
 });
+
+// ===== Hands-free mode =====
+let handsFree = false;
+let listenMode = null;      // 'answer' | 'command' | null
+let wakeLock = null;
+let restartTimer = null;
+
+function beepListen(){ tone(1046.5, 0, 0.12, 'sine', 0.14); }
+
+async function acquireWakeLock(){
+  try{
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  }catch(e){ console.log('wakeLock unavailable:', e.message); }
+}
+async function releaseWakeLock(){
+  try{ if(wakeLock){ await wakeLock.release(); wakeLock = null; } }catch(e){}
+}
+// Re-acquire after the tab goes to the background and returns
+document.addEventListener('visibilitychange', () => {
+  if(handsFree && document.visibilityState === 'visible' && !wakeLock) acquireWakeLock();
+});
+
+// "つぎ" is spoken in Japanese while recognition runs in en-US, so it comes back
+// transcribed loosely. Match generously against the plausible spellings.
+const NEXT_PATTERNS = [
+  /^(tsu|su|tu|ts)\s*[gk]i+$/,      // tsugi / sugi / tuki ...
+  /^(tsu|su|tu)\s*[gk]e+$/,
+  /^ski+$/, /^sugi+$/, /^tsuki+$/, /^scree+$/,
+  /^next$/, /^skip$/, /^pass$/
+];
+function isNextCommand(text){
+  const t = String(text || '').toLowerCase().replace(/[^a-z\u3040-\u30ff\u4e00-\u9fff\s]/g, '').trim();
+  if(!t) return false;
+  if(/つぎ|次|スキップ/.test(t)) return true;
+  const compact = t.replace(/\s+/g, ' ');
+  if(NEXT_PATTERNS.some(re => re.test(compact))) return true;
+  if(NEXT_PATTERNS.some(re => re.test(compact.replace(/\s+/g, '')))) return true;
+  return false;
+}
+
+function startListening(mode){
+  if(!recognition || !handsFree) return;
+  listenMode = mode;
+  if(isRecording) return;
+  clearTimeout(restartTimer);
+  beepListen();
+  restartTimer = setTimeout(() => {
+    if(!handsFree || !listenMode || isRecording) return;
+    try{
+      isRecording = true;
+      recognition.start();
+      els.waveform.classList.add('active');
+      animateWaveform();
+      els.statusLine.textContent = (listenMode === 'answer')
+        ? '聞き取り中... (「つぎ」でスキップ)'
+        : '「つぎ」と言うと次へ進みます';
+    }catch(e){ isRecording = false; }
+  }, 250);
+}
+
+function stopListening(){
+  listenMode = null;
+  clearTimeout(restartTimer);
+  if(isRecording){ try{ recognition.stop(); }catch(e){} }
+  isRecording = false;
+  els.waveform.classList.remove('active');
+}
+
+// Called from recognition.onend - keeps the mic open indefinitely so there is
+// no real time limit on how long the user can think before answering.
+function maybeRestartListening(){
+  if(handsFree && listenMode && !isRecording){
+    clearTimeout(restartTimer);
+    restartTimer = setTimeout(() => {
+      if(!handsFree || !listenMode || isRecording) return;
+      try{
+        isRecording = true;
+        recognition.start();
+        els.waveform.classList.add('active');
+        animateWaveform();
+      }catch(e){ isRecording = false; }
+    }, 300);
+  }
+}
+
+async function startHandsFree(){
+  if(!recognition){ els.statusLine.textContent = 'このブラウザは音声認識に対応していません。'; return; }
+  handsFree = true;
+  getAudioCtx();
+  await acquireWakeLock();
+  els.handsFreeBtn.textContent = '⏹ ハンズフリー停止';
+  els.handsFreeBtn.classList.remove('ghost');
+  els.hfStatus.style.display = 'block';
+  // If a result is already on screen, wait for "next"; otherwise take an answer.
+  startListening(els.resultBox.style.display === 'block' ? 'command' : 'answer');
+}
+
+async function stopHandsFree(){
+  handsFree = false;
+  stopListening();
+  await releaseWakeLock();
+  els.handsFreeBtn.textContent = '🙌 ハンズフリー開始';
+  els.handsFreeBtn.classList.add('ghost');
+  els.hfStatus.style.display = 'none';
+  els.statusLine.textContent = 'マイクボタンを押して話してください';
+}
+
+els.handsFreeBtn.addEventListener('click', () => {
+  handsFree ? stopHandsFree() : startHandsFree();
+});
+
+// Skip the current question entirely (no progress recorded)
+function skipQuestion(){
+  stopListening();
+  updateStatBar();
+  nextQuestion();
+  if(handsFree) startListening('answer');
+}
 
 // ===== Speech recognition =====
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -761,13 +896,35 @@ if(SR){
   recognition.lang = 'en-US';
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
-  recognition.onresult = e => handleTranscript(e.results[0][0].transcript);
-  recognition.onend = () => { isRecording = false; els.waveform.classList.remove('active'); };
+  recognition.onresult = e => {
+    const t = e.results[0][0].transcript;
+
+    if(handsFree && listenMode === 'command'){
+      if(isNextCommand(t)){ listenMode = null; els.nextBtn.click(); }
+      return;   // ignore anything else while waiting on the answer screen
+    }
+    if(handsFree && listenMode === 'answer'){
+      if(isNextCommand(t)){ listenMode = null; skipQuestion(); return; }
+      listenMode = null;
+      stopListening();
+    }
+    handleTranscript(t);
+  };
+  recognition.onend = () => {
+    isRecording = false;
+    els.waveform.classList.remove('active');
+    maybeRestartListening();
+  };
   recognition.onerror = e => {
     isRecording = false;
     els.waveform.classList.remove('active');
     els.micBtn.classList.remove('on');
     els.micBtn.textContent = '🎤 話す';
+    // In hands-free mode a silent stretch is expected - restart and keep waiting.
+    if(handsFree && listenMode && (e.error === 'no-speech' || e.error === 'aborted')){
+      maybeRestartListening();
+      return;
+    }
     if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
       els.statusLine.textContent = 'マイクが許可されていません。ブラウザの権限設定を確認してください。';
     } else if(e.error === 'no-speech'){
@@ -784,6 +941,8 @@ if(SR){
 els.micBtn.addEventListener('click', () => {
   if(!recognition || !questions.length) return;
   getAudioCtx(); // unlock audio on user gesture
+  if(handsFree){ listenMode = 'answer'; }
+  if(isRecording) return;
   isRecording = true;
   els.micBtn.classList.add('on');
   els.micBtn.textContent = '■ 聞き取り中...';
@@ -803,6 +962,7 @@ function animateWaveform(){
 
 // ===== Grading =====
 async function handleTranscript(transcript){
+  stopListening();
   els.micBtn.style.display = 'none';
   els.statusLine.textContent = 'AIが判定中...';
   if(!currentQ) return;
@@ -829,6 +989,7 @@ async function handleTranscript(transcript){
     els.micBtn.style.display = 'block';
     els.micBtn.disabled = false;
     els.giveUpBtn.style.display = '';
+    if(handsFree) setTimeout(() => startListening('answer'), 600);
   }
 }
 
@@ -967,9 +1128,11 @@ function applyResult(transcript, result, remaining){
     updateProgress(currentQ.key, run.allCorrect);
   }
 
-  if(els.autoSpeak.checked){
-    const toSpeak = matched ? matched.en : (remaining[0] && remaining[0].en);
-    if(toSpeak) setTimeout(() => speakText(toSpeak), 750);
+  const toSpeak = matched ? matched.en : (finished && remaining[0] ? remaining[0].en : null);
+  if(els.autoSpeak.checked && toSpeak){
+    setTimeout(() => speakText(toSpeak, () => { if(handsFree) startListening('command'); }), 750);
+  } else if(handsFree){
+    setTimeout(() => startListening('command'), 400);
   }
 }
 
@@ -1055,7 +1218,10 @@ els.giveUpBtn.addEventListener('click', () => {
   updateProgress(currentQ.key, false);
 
   if(els.autoSpeak.checked && currentQ.variants[0]){
-    setTimeout(() => speakText(currentQ.variants[0].en), 750);
+    setTimeout(() => speakText(currentQ.variants[0].en,
+      () => { if(handsFree) startListening('command'); }), 750);
+  } else if(handsFree){
+    setTimeout(() => startListening('command'), 400);
   }
 });
 
