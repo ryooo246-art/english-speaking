@@ -106,6 +106,15 @@
       <div>習得(Lv4) <b id="statHigh">0</b></div>
     </div>
 
+    <div class="row" style="margin-bottom:10px;">
+      <label style="font-size:12px;color:var(--muted);font-family:var(--mono);">Lesson</label>
+      <input type="text" id="lessonFilter" placeholder="例: 1-3,5 (空欄=全部)"
+             style="flex:1;min-width:120px;padding:9px;border:1px solid var(--paper-line);
+                    border-radius:4px;font-family:var(--mono);font-size:13px;background:#fdfcfa;">
+      <button class="ghost" id="applyLessonBtn" style="font-size:12px;padding:9px 14px;min-height:auto;">適用</button>
+    </div>
+    <div id="lessonStatus" style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:12px;"></div>
+
     <div class="row" style="margin-bottom:12px;">
       <button class="ghost" id="handsFreeBtn" style="flex:1;">🙌 ハンズフリー開始</button>
     </div>
@@ -242,8 +251,8 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v2.5';
-const APP_UPDATED = '2026-08-02';
+const APP_VERSION = 'v2.6';
+const APP_UPDATED = '2026-09-28';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
 // ===== Sound effects =====
@@ -288,7 +297,7 @@ const els = {};
 ['fileInput','pasteArea','loadPasteBtn','loadStatus','practiceArea','emptyState',
  'jaPrompt','lvlChip','lessonChip','groupChip','variantCounter','statusLine','micBtn',
  'waveform','resultBox','badge','heardText','feedbackText','answerList','nextRow','nextBtn','giveUpBtn',
- 'exportBtn','statTotal','statLow','statHigh','apiKeyInput','saveKeyBtn','keyStatus','handsFreeBtn','hfStatus',
+ 'exportBtn','statTotal','statLow','statHigh','apiKeyInput','saveKeyBtn','keyStatus','handsFreeBtn','hfStatus','lessonFilter','applyLessonBtn','lessonStatus',
  'modelSelect','listModelsBtn','autoSpeak','rateSelect'].forEach(id => els[id] = document.getElementById(id));
 
 // ===== Storage shim (window.storage in artifacts, localStorage elsewhere) =====
@@ -561,6 +570,8 @@ function loadQuestions(rows){
   els.practiceArea.style.display = 'block';
   els.emptyState.style.display = 'none';
   queue = [];
+  lessonFilter = parseLessonFilter(els.lessonFilter.value);
+  els.lessonStatus.textContent = lessonSummary();
   updateStatBar();
   nextQuestion();
 }
@@ -599,6 +610,76 @@ els.loadPasteBtn.addEventListener('click', () => {
   loadQuestions(Papa.parse(t).data);
 });
 
+// ===== Lesson filter =====
+// "1-3,5" -> lessons 1,2,3,5. Empty means every lesson.
+const LESSON_FILTER_STORE = 'lesson_filter_v1';
+let lessonFilter = null;   // null = no filter
+
+function parseLessonFilter(text){
+  const raw = String(text || '').trim();
+  if(!raw) return null;
+  const nums = new Set();
+  const exacts = new Set();
+  raw.split(/[,、\s]+/).filter(Boolean).forEach(part => {
+    const m = part.match(/^(\d+)\s*[-~〜ー]\s*(\d+)$/);
+    if(m){
+      let a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+      if(a > b) [a, b] = [b, a];
+      for(let i = a; i <= b; i++) nums.add(i);
+    } else if(/^\d+$/.test(part)){
+      nums.add(parseInt(part, 10));
+    } else {
+      exacts.add(part.toLowerCase());   // non-numeric lesson names
+    }
+  });
+  if(!nums.size && !exacts.size) return null;
+  return { nums, exacts };
+}
+
+function matchesLesson(q){
+  if(!lessonFilter) return true;
+  const raw = String(q.lesson || '').trim();
+  if(!raw) return false;                       // blank lesson is excluded when filtering
+  const n = parseInt(raw, 10);
+  if(!isNaN(n) && lessonFilter.nums.has(n)) return true;
+  return lessonFilter.exacts.has(raw.toLowerCase());
+}
+
+// The pool every selection, stat and group lookup works from
+function activeQuestions(){
+  if(!lessonFilter) return questions;
+  const f = questions.filter(matchesLesson);
+  return f.length ? f : questions;             // never leave the user with nothing
+}
+
+function lessonSummary(){
+  if(!questions.length) return '';
+  const lessons = [...new Set(questions.map(q => String(q.lesson || '').trim()).filter(Boolean))]
+    .sort((a,b) => (parseInt(a,10) || 0) - (parseInt(b,10) || 0));
+  const pool = activeQuestions();
+  let msg = `対象 ${pool.length} / 全 ${questions.length} 問`;
+  if(lessonFilter && pool.length === questions.length && questions.some(q => !matchesLesson(q))){
+    msg += ' ⚠ 該当なしのため全問を出題中';
+  }
+  if(lessons.length) msg += ` — 収録Lesson: ${lessons.join(', ')}`;
+  return msg;
+}
+
+async function applyLessonFilter(persist){
+  lessonFilter = parseLessonFilter(els.lessonFilter.value);
+  if(persist) await store.set(LESSON_FILTER_STORE, els.lessonFilter.value.trim());
+  els.lessonStatus.textContent = lessonSummary();
+  queue = [];
+  lastQKey = null;
+  updateStatBar();
+  if(questions.length) nextQuestion();
+}
+
+els.applyLessonBtn.addEventListener('click', () => applyLessonFilter(true));
+els.lessonFilter.addEventListener('keydown', e => {
+  if(e.key === 'Enter') applyLessonFilter(true);
+});
+
 // ===== Question selection =====
 function shuffle(a){
   const x = a.slice();
@@ -624,15 +705,17 @@ function pickWeighted(pool){
 // Build the next run of questions. If the picked question belongs to a group,
 // queue up every question in that group (random order) before moving on.
 function refillQueue(){
-  let pool = questions;
-  if(questions.length > 1 && lastQKey){
-    const without = questions.filter(q => q.key !== lastQKey);
+  const active = activeQuestions();
+  let pool = active;
+  if(active.length > 1 && lastQKey){
+    const without = active.filter(q => q.key !== lastQKey);
     if(without.length) pool = without;
   }
   const picked = pickWeighted(pool);
 
   if(picked.group){
-    const members = questions.filter(q => q.group === picked.group);
+    // Group mates are limited to the current lesson selection too
+    const members = active.filter(q => q.group === picked.group);
     queue = shuffle(members).map(q => q.key);
   } else {
     queue = [picked.key];
@@ -701,9 +784,10 @@ els.nextBtn.addEventListener('click', () => {
 });
 
 function updateStatBar(){
-  els.statTotal.textContent = questions.length;
+  const active = activeQuestions();
+  els.statTotal.textContent = active.length;
   let low = 0, high = 0;
-  questions.forEach(q => {
+  active.forEach(q => {
     const lv = getStats(q.key).level;
     if(lv === 0) low++;
     if(lv >= 4) high++;
@@ -1258,6 +1342,9 @@ els.exportBtn.addEventListener('click', () => {
   await loadApiKey();
   const as = await store.get(AUTOSPEAK_STORE);
   if(as === '1') els.autoSpeak.checked = true;
+
+  const lf = await store.get(LESSON_FILTER_STORE);
+  if(lf){ els.lessonFilter.value = lf; lessonFilter = parseLessonFilter(lf); }
 
   if(typeof window.EMBEDDED_CSV === 'string' && window.EMBEDDED_CSV.trim()){
     loadQuestions(Papa.parse(window.EMBEDDED_CSV.trim()).data);
