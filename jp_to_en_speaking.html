@@ -120,7 +120,7 @@
     </div>
     <div id="hfStatus" style="display:none;font-family:var(--mono);font-size:11px;color:var(--accent);
          text-align:center;margin-bottom:12px;padding:6px;background:var(--accent-dim);border-radius:4px;">
-      ハンズフリー中 — 「つぎ」でスキップ / 次へ
+      ハンズフリー中 — 「つぎ」次へ・スキップ / 「ギブアップ」わからない / 「ストップ」終了
     </div>
 
     <div class="card">
@@ -251,8 +251,8 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v2.6';
-const APP_UPDATED = '2026-09-28';
+const APP_VERSION = 'v2.7';
+const APP_UPDATED = '2026-10-06';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
 // ===== Sound effects =====
@@ -780,7 +780,7 @@ els.nextBtn.addEventListener('click', () => {
     updateStatBar();
     nextQuestion();
   }
-  if(handsFree) startListening('answer');
+  promptThenListen();
 });
 
 function updateStatBar(){
@@ -817,7 +817,7 @@ function pickVoice(){
   return cachedVoice;
 }
 if(typeof speechSynthesis !== 'undefined'){
-  speechSynthesis.onvoiceschanged = () => { cachedVoice = null; pickVoice(); };
+  speechSynthesis.onvoiceschanged = () => { cachedVoice = null; cachedVoiceJa = null; pickVoice(); };
   pickVoice();
 }
 // "That's great[wonderful/awesome]!" -> "That's great!"
@@ -844,6 +844,37 @@ function speakText(text, onDone){
   }
   speechSynthesis.speak(u);
 }
+// Japanese voice, used for reading the prompt aloud in hands-free mode
+let cachedVoiceJa = null;
+function pickVoiceJa(){
+  if(cachedVoiceJa) return cachedVoiceJa;
+  const voices = speechSynthesis.getVoices() || [];
+  const ja = voices.filter(v => /^ja(-|_)?/i.test(v.lang || ''));
+  if(!ja.length) return null;
+  const score = v => {
+    let s = 0;
+    const n = (v.name || '').toLowerCase();
+    if(/google/.test(n)) s += 5;
+    if(/natural|neural|enhanced|premium/.test(n)) s += 4;
+    if(v.localService === false) s += 1;
+    return s;
+  };
+  cachedVoiceJa = ja.slice().sort((a,b) => score(b) - score(a))[0];
+  return cachedVoiceJa;
+}
+
+function speakJapanese(text, onDone){
+  const t = String(text || '').trim();
+  if(!t || typeof speechSynthesis === 'undefined'){ if(typeof onDone === 'function') onDone(); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(t);
+  const v = pickVoiceJa();
+  if(v){ u.voice = v; u.lang = v.lang; } else { u.lang = 'ja-JP'; }
+  u.rate = 1.0;
+  if(typeof onDone === 'function'){ u.onend = onDone; u.onerror = onDone; }
+  speechSynthesis.speak(u);
+}
+
 const AUTOSPEAK_STORE = 'autospeak_v1';
 els.autoSpeak.addEventListener('change', async () => {
   await store.set(AUTOSPEAK_STORE, els.autoSpeak.checked ? '1' : '0');
@@ -881,14 +912,60 @@ const NEXT_PATTERNS = [
   /^ski+$/, /^sugi+$/, /^tsuki+$/, /^scree+$/,
   /^next$/, /^skip$/, /^pass$/
 ];
+// "ギブアップ" is an English loanword, so en-US recognition usually returns
+// "give up" cleanly - far more reliable than trying to match "わからない".
+const GIVEUP_PATTERNS = [
+  /^give\s*up$/, /^gibu\s*appu$/, /^giveup$/,
+  /^wakaranai$/, /^waka\s*ranai$/, /^wakannai$/
+];
+// Whole-utterance stop commands
+const STOP_PATTERNS = [
+  /^stop$/, /^sutoppu$/, /^su\s*toppu$/,
+  /^finish$/, /^quit$/, /^exit$/, /^end$/,
+  /^owari$/, /^shuryo+u?$/, /^shu+ryo+u?$/
+];
+
+function normalizeCommand(text){
+  const t = String(text || '').toLowerCase()
+    .replace(/[^a-z\u3040-\u30ff\u4e00-\u9fff\s]/g, '').trim();
+  return t.replace(/\s+/g, ' ');
+}
+
+function matchAny(patterns, compact){
+  return patterns.some(re => re.test(compact))
+      || patterns.some(re => re.test(compact.replace(/\s+/g, '')));
+}
+
 function isNextCommand(text){
-  const t = String(text || '').toLowerCase().replace(/[^a-z\u3040-\u30ff\u4e00-\u9fff\s]/g, '').trim();
-  if(!t) return false;
-  if(/つぎ|次|スキップ/.test(t)) return true;
-  const compact = t.replace(/\s+/g, ' ');
-  if(NEXT_PATTERNS.some(re => re.test(compact))) return true;
-  if(NEXT_PATTERNS.some(re => re.test(compact.replace(/\s+/g, '')))) return true;
-  return false;
+  const compact = normalizeCommand(text);
+  if(!compact) return false;
+  if(/つぎ|次|スキップ/.test(compact)) return true;
+  return matchAny(NEXT_PATTERNS, compact);
+}
+
+function isGiveUpCommand(text){
+  const compact = normalizeCommand(text);
+  if(!compact) return false;
+  if(/ギブアップ|わからない|分からない|わかんない/.test(compact)) return true;
+  return matchAny(GIVEUP_PATTERNS, compact);
+}
+
+function isStopCommand(text){
+  const compact = normalizeCommand(text);
+  if(!compact) return false;
+  if(/ストップ|終了|しゅうりょう|おわり|終わり/.test(compact)) return true;
+  return matchAny(STOP_PATTERNS, compact);
+}
+
+// In hands-free mode the prompt is read aloud first; the mic opens only once
+// the speech has finished, so the app never hears itself.
+function promptThenListen(){
+  if(!handsFree) return;
+  stopListening();
+  if(!currentQ){ return; }
+  speakJapanese(currentQ.ja, () => {
+    if(handsFree) startListening('answer');
+  });
 }
 
 function startListening(mode){
@@ -905,8 +982,8 @@ function startListening(mode){
       els.waveform.classList.add('active');
       animateWaveform();
       els.statusLine.textContent = (listenMode === 'answer')
-        ? '聞き取り中... (「つぎ」でスキップ)'
-        : '「つぎ」と言うと次へ進みます';
+        ? '聞き取り中... (つぎ=スキップ / ギブアップ / ストップ)'
+        : '「つぎ」で次へ (ストップ=終了)';
     }catch(e){ isRecording = false; }
   }, 250);
 }
@@ -944,13 +1021,18 @@ async function startHandsFree(){
   els.handsFreeBtn.textContent = '⏹ ハンズフリー停止';
   els.handsFreeBtn.classList.remove('ghost');
   els.hfStatus.style.display = 'block';
-  // If a result is already on screen, wait for "next"; otherwise take an answer.
-  startListening(els.resultBox.style.display === 'block' ? 'command' : 'answer');
+  // If a result is already on screen, wait for "next"; otherwise read the prompt.
+  if(els.resultBox.style.display === 'block'){
+    startListening('command');
+  } else {
+    promptThenListen();
+  }
 }
 
 async function stopHandsFree(){
   handsFree = false;
   stopListening();
+  try{ speechSynthesis.cancel(); }catch(e){}
   await releaseWakeLock();
   els.handsFreeBtn.textContent = '🙌 ハンズフリー開始';
   els.handsFreeBtn.classList.add('ghost');
@@ -967,7 +1049,7 @@ function skipQuestion(){
   stopListening();
   updateStatBar();
   nextQuestion();
-  if(handsFree) startListening('answer');
+  promptThenListen();
 }
 
 // ===== Speech recognition =====
@@ -983,12 +1065,22 @@ if(SR){
   recognition.onresult = e => {
     const t = e.results[0][0].transcript;
 
+    // "ストップ" ends hands-free from either screen
+    if(handsFree && listenMode && isStopCommand(t)){
+      listenMode = null;
+      stopHandsFree();
+      els.statusLine.textContent = 'ハンズフリーを終了しました。';
+      return;
+    }
+
     if(handsFree && listenMode === 'command'){
       if(isNextCommand(t)){ listenMode = null; els.nextBtn.click(); }
       return;   // ignore anything else while waiting on the answer screen
     }
+
     if(handsFree && listenMode === 'answer'){
       if(isNextCommand(t)){ listenMode = null; skipQuestion(); return; }
+      if(isGiveUpCommand(t)){ listenMode = null; stopListening(); els.giveUpBtn.click(); return; }
       listenMode = null;
       stopListening();
     }
