@@ -106,23 +106,6 @@
       <div>習得(Lv4) <b id="statHigh">0</b></div>
     </div>
 
-    <div class="row" style="margin-bottom:10px;">
-      <label style="font-size:12px;color:var(--muted);font-family:var(--mono);">Lesson</label>
-      <input type="text" id="lessonFilter" placeholder="例: 1-3,5 (空欄=全部)"
-             style="flex:1;min-width:120px;padding:9px;border:1px solid var(--paper-line);
-                    border-radius:4px;font-family:var(--mono);font-size:13px;background:#fdfcfa;">
-      <button class="ghost" id="applyLessonBtn" style="font-size:12px;padding:9px 14px;min-height:auto;">適用</button>
-    </div>
-    <div id="lessonStatus" style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:12px;"></div>
-
-    <div class="row" style="margin-bottom:12px;">
-      <button class="ghost" id="handsFreeBtn" style="flex:1;">🙌 ハンズフリー開始</button>
-    </div>
-    <div id="hfStatus" style="display:none;font-family:var(--mono);font-size:11px;color:var(--accent);
-         text-align:center;margin-bottom:12px;padding:6px;background:var(--accent-dim);border-radius:4px;">
-      ハンズフリー中 — 「つぎ」次へ・スキップ / 「ギブアップ」わからない / 「ストップ」終了
-    </div>
-
     <div class="card">
       <div class="chips">
         <span class="chip" id="lessonChip" style="visibility:hidden;">Lesson –</span>
@@ -181,6 +164,26 @@
         </div>
         <button class="accent" id="nextBtn">次へ →</button>
       </div>
+    </div>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--paper-line);">
+    <div class="row" style="margin-bottom:10px;">
+      <label style="font-size:12px;color:var(--muted);font-family:var(--mono);">Lesson</label>
+      <input type="text" id="lessonFilter" placeholder="例: 1-3,5 (空欄=全部)"
+             style="flex:1;min-width:120px;padding:9px;border:1px solid var(--paper-line);
+                    border-radius:4px;font-family:var(--mono);font-size:13px;background:#fdfcfa;">
+      <button class="ghost" id="applyLessonBtn" style="font-size:12px;padding:9px 14px;min-height:auto;">適用</button>
+    </div>
+    <div id="lessonStatus" style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:12px;"></div>
+
+    <div class="row" style="margin-bottom:12px;">
+      <button class="ghost" id="handsFreeBtn" style="flex:1;">🙌 ハンズフリー開始</button>
+    </div>
+    <div id="hfStatus" style="display:none;font-family:var(--mono);font-size:11px;color:var(--accent);
+         text-align:center;margin-bottom:12px;padding:6px;background:var(--accent-dim);border-radius:4px;">
+      ハンズフリー中 — 「つぎ」次へ・スキップ / 「ギブアップ」わからない / 「ストップ」終了
+      <div id="lastHeard" style="margin-top:4px;color:var(--muted);"></div>
+    </div>
     </div>
 
     <div class="export-row">
@@ -251,8 +254,8 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v2.7';
-const APP_UPDATED = '2026-10-06';
+const APP_VERSION = 'v2.8';
+const APP_UPDATED = '2026-10-08';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
 // ===== Sound effects =====
@@ -297,7 +300,7 @@ const els = {};
 ['fileInput','pasteArea','loadPasteBtn','loadStatus','practiceArea','emptyState',
  'jaPrompt','lvlChip','lessonChip','groupChip','variantCounter','statusLine','micBtn',
  'waveform','resultBox','badge','heardText','feedbackText','answerList','nextRow','nextBtn','giveUpBtn',
- 'exportBtn','statTotal','statLow','statHigh','apiKeyInput','saveKeyBtn','keyStatus','handsFreeBtn','hfStatus','lessonFilter','applyLessonBtn','lessonStatus',
+ 'exportBtn','statTotal','statLow','statHigh','apiKeyInput','saveKeyBtn','keyStatus','handsFreeBtn','hfStatus','lessonFilter','applyLessonBtn','lessonStatus','lastHeard',
  'modelSelect','listModelsBtn','autoSpeak','rateSelect'].forEach(id => els[id] = document.getElementById(id));
 
 // ===== Storage shim (window.storage in artifacts, localStorage elsewhere) =====
@@ -904,69 +907,102 @@ document.addEventListener('visibilitychange', () => {
   if(handsFree && document.visibilityState === 'visible' && !wakeLock) acquireWakeLock();
 });
 
-// "つぎ" is spoken in Japanese while recognition runs in en-US, so it comes back
-// transcribed loosely. Match generously against the plausible spellings.
-const NEXT_PATTERNS = [
-  /^(tsu|su|tu|ts)\s*[gk]i+$/,      // tsugi / sugi / tuki ...
-  /^(tsu|su|tu)\s*[gk]e+$/,
-  /^ski+$/, /^sugi+$/, /^tsuki+$/, /^scree+$/,
-  /^next$/, /^skip$/, /^pass$/
-];
-// "ギブアップ" is an English loanword, so en-US recognition usually returns
-// "give up" cleanly - far more reliable than trying to match "わからない".
-const GIVEUP_PATTERNS = [
-  /^give\s*up$/, /^gibu\s*appu$/, /^giveup$/,
-  /^wakaranai$/, /^waka\s*ranai$/, /^wakannai$/
-];
-// Whole-utterance stop commands
-const STOP_PATTERNS = [
-  /^stop$/, /^sutoppu$/, /^su\s*toppu$/,
-  /^finish$/, /^quit$/, /^exit$/, /^end$/,
-  /^owari$/, /^shuryo+u?$/, /^shu+ryo+u?$/
-];
+// Voice commands.
+// Recognition runs in en-US, so Japanese commands come back loosely transliterated
+// and short English words are easily misheard ("next" -> "text"/"necks"/"nest").
+// Matching is therefore generous, but ONLY for short utterances: a real answer is
+// normally a full sentence, so "Text me later." can never be read as a command.
+
+const CMD = {
+  next: {
+    words: ['next','nekusuto','tsugi','sugi','tugi','tsuki','suki','ski','skip',
+            'forward','continue','proceed'],
+    // Misrecognitions seen in practice for these short words
+    confusions: ['text','texts','necks','nest','net','neck','nix','knicks','mixed',
+                 'sky','scree','sugoi','suki','scheme','skipped','skips','next1'],
+    kana: /つぎ|次|スキップ|ネクスト/
+  },
+  giveup: {
+    words: ['giveup','gibuappu','gibuapu','wakaranai','wakaranai','wakannai','wakarimasen'],
+    confusions: ['giveupp','gaveup','givap','givesup','wakadanai','wakaranaai'],
+    kana: /ギブアップ|わからない|分からない|わかんない|わかりません/
+  },
+  stop: {
+    words: ['stop','sutoppu','stoppu','finish','quit','exit','end','owari','shuryo','shuryou'],
+    confusions: ['top','stopp','stops','stopped','shop','step','stoop','suto','owadi'],
+    kana: /ストップ|終了|しゅうりょう|おわり|終わり/
+  }
+};
+
+// Words that carry no meaning around a command, e.g. "okay next please"
+const FILLERS = new Set(['okay','ok','oke','please','go','the','a','um','uh','er','well',
+                         'now','one','question','mon','and','so','then','hey','yeah']);
+
+function levenshtein(a, b){
+  if(a === b) return 0;
+  if(!a.length) return b.length;
+  if(!b.length) return a.length;
+  let prev = Array.from({length: b.length + 1}, (_, i) => i);
+  for(let i = 1; i <= a.length; i++){
+    const cur = [i];
+    for(let j = 1; j <= b.length; j++){
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j-1] + 1,
+        prev[j-1] + (a[i-1] === b[j-1] ? 0 : 1)
+      );
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+// Longer words tolerate more slop; 3-letter words must be exact.
+function fuzzyTolerance(len){
+  if(len >= 7) return 2;
+  if(len >= 4) return 1;
+  return 0;
+}
 
 function normalizeCommand(text){
-  const t = String(text || '').toLowerCase()
-    .replace(/[^a-z\u3040-\u30ff\u4e00-\u9fff\s]/g, '').trim();
-  return t.replace(/\s+/g, ' ');
+  return String(text || '').toLowerCase()
+    .replace(/[^a-z\u3040-\u30ff\u4e00-\u9fff\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-function matchAny(patterns, compact){
-  return patterns.some(re => re.test(compact))
-      || patterns.some(re => re.test(compact.replace(/\s+/g, '')));
+// Drop filler words, then collapse remaining spaces ("tsu gi" -> "tsugi")
+function commandCore(compact){
+  const tokens = compact.split(' ').filter(Boolean);
+  const kept = tokens.filter(t => !FILLERS.has(t));
+  const core = (kept.length ? kept : tokens);
+  return { tokens: core, joined: core.join('') };
 }
 
-function isNextCommand(text){
+function matchesCommand(text, spec){
   const compact = normalizeCommand(text);
   if(!compact) return false;
-  if(/つぎ|次|スキップ/.test(compact)) return true;
-  return matchAny(NEXT_PATTERNS, compact);
+  if(spec.kana.test(compact)) return true;
+
+  const { tokens, joined } = commandCore(compact);
+
+  // Only a short utterance may be a command - real answers are sentences.
+  if(tokens.length > 2) return false;
+
+  const candidates = [joined, tokens.join(' ')];
+  for(const cand of candidates){
+    if(!cand) continue;
+    if(spec.words.includes(cand) || spec.confusions.includes(cand)) return true;
+    for(const w of spec.words){
+      if(levenshtein(cand, w) <= fuzzyTolerance(Math.max(cand.length, w.length))) return true;
+    }
+  }
+  return false;
 }
 
-function isGiveUpCommand(text){
-  const compact = normalizeCommand(text);
-  if(!compact) return false;
-  if(/ギブアップ|わからない|分からない|わかんない/.test(compact)) return true;
-  return matchAny(GIVEUP_PATTERNS, compact);
-}
-
-function isStopCommand(text){
-  const compact = normalizeCommand(text);
-  if(!compact) return false;
-  if(/ストップ|終了|しゅうりょう|おわり|終わり/.test(compact)) return true;
-  return matchAny(STOP_PATTERNS, compact);
-}
-
-// In hands-free mode the prompt is read aloud first; the mic opens only once
-// the speech has finished, so the app never hears itself.
-function promptThenListen(){
-  if(!handsFree) return;
-  stopListening();
-  if(!currentQ){ return; }
-  speakJapanese(currentQ.ja, () => {
-    if(handsFree) startListening('answer');
-  });
-}
+function isNextCommand(text){ return matchesCommand(text, CMD.next); }
+function isGiveUpCommand(text){ return matchesCommand(text, CMD.giveup); }
+function isStopCommand(text){ return matchesCommand(text, CMD.stop); }
 
 function startListening(mode){
   if(!recognition || !handsFree) return;
@@ -1064,6 +1100,11 @@ if(SR){
   recognition.maxAlternatives = 1;
   recognition.onresult = e => {
     const t = e.results[0][0].transcript;
+
+    // Surface the raw transcript so unmatched commands can be diagnosed
+    if(handsFree && listenMode === 'command'){
+      els.lastHeard.textContent = '認識: 「' + t + '」';
+    }
 
     // "ストップ" ends hands-free from either screen
     if(handsFree && listenMode && isStopCommand(t)){
