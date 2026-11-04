@@ -254,8 +254,8 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v2.8';
-const APP_UPDATED = '2026-10-08';
+const APP_VERSION = 'v2.9';
+const APP_UPDATED = '2026-11-04';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
 // ===== Sound effects =====
@@ -767,10 +767,13 @@ function renderQuestion(){
 
   els.resultBox.style.display = 'none';
   els.nextRow.style.display = 'none';
-  els.statusLine.textContent = 'マイクボタンを押して話してください';
+  // In hands-free the mic opens by itself; the button stays only as a fallback.
+  els.statusLine.textContent = handsFree
+    ? '準備中...'
+    : 'マイクボタンを押して話してください';
   els.micBtn.style.display = 'block';
   els.micBtn.disabled = false;
-  els.micBtn.textContent = '🎤 話す';
+  els.micBtn.textContent = handsFree ? '🎤 今すぐ聞き取る' : '🎤 話す';
   els.micBtn.classList.remove('on');
   els.giveUpBtn.style.display = '';
 }
@@ -866,16 +869,49 @@ function pickVoiceJa(){
   return cachedVoiceJa;
 }
 
+// On Android Chrome, speechSynthesis sometimes never fires onend (or speak()
+// fails silently when the voice list isn't ready). A watchdog guarantees the
+// callback still runs, so the mic can never be left closed.
 function speakJapanese(text, onDone){
   const t = String(text || '').trim();
-  if(!t || typeof speechSynthesis === 'undefined'){ if(typeof onDone === 'function') onDone(); return; }
-  speechSynthesis.cancel();
+  const finish = (() => {
+    let called = false;
+    return () => {
+      if(called) return;
+      called = true;
+      if(typeof onDone === 'function') onDone();
+    };
+  })();
+
+  if(!t || typeof speechSynthesis === 'undefined'){ finish(); return; }
+
+  try{ speechSynthesis.cancel(); }catch(e){}
+
   const u = new SpeechSynthesisUtterance(t);
   const v = pickVoiceJa();
   if(v){ u.voice = v; u.lang = v.lang; } else { u.lang = 'ja-JP'; }
   u.rate = 1.0;
-  if(typeof onDone === 'function'){ u.onend = onDone; u.onerror = onDone; }
-  speechSynthesis.speak(u);
+  u.onend = finish;
+  u.onerror = finish;
+
+  // Upper bound on how long the readout may take
+  const budget = Math.max(2500, t.length * 220) + 1500;
+  setTimeout(finish, budget);
+
+  try{
+    speechSynthesis.speak(u);
+  }catch(e){ finish(); return; }
+
+  // If nothing actually started speaking, don't wait out the whole budget.
+  // Cancel first, so a late-starting voice can't talk over the open mic.
+  setTimeout(() => {
+    try{
+      if(!speechSynthesis.speaking && !speechSynthesis.pending){
+        speechSynthesis.cancel();
+        finish();
+      }
+    }catch(e){ finish(); }
+  }, 2000);
 }
 
 const AUTOSPEAK_STORE = 'autospeak_v1';
@@ -1004,24 +1040,50 @@ function isNextCommand(text){ return matchesCommand(text, CMD.next); }
 function isGiveUpCommand(text){ return matchesCommand(text, CMD.giveup); }
 function isStopCommand(text){ return matchesCommand(text, CMD.stop); }
 
+// In hands-free mode the prompt is read aloud first, then the mic opens on its
+// own - the 話す button never has to be pressed.
+function promptThenListen(){
+  if(!handsFree) return;
+  els.lastHeard.textContent = '';
+  stopListening();
+  if(!currentQ){ return; }
+  els.statusLine.textContent = '問題を読み上げています...';
+  speakJapanese(currentQ.ja, () => {
+    if(handsFree) startListening('answer');
+  });
+}
+
+// Actually open the mic. recognition.start() throws if a previous session is
+// still winding down, so recover instead of silently giving up.
+function openMic(attempt){
+  if(!handsFree || !listenMode || isRecording) return;
+  try{
+    isRecording = true;
+    recognition.start();
+    els.waveform.classList.add('active');
+    animateWaveform();
+    els.statusLine.textContent = (listenMode === 'answer')
+      ? '聞き取り中... (つぎ=スキップ / ギブアップ / ストップ)'
+      : '「つぎ」で次へ (ストップ=終了)';
+  }catch(e){
+    isRecording = false;
+    if((attempt || 0) < 2){
+      try{ recognition.stop(); }catch(e2){}
+      clearTimeout(restartTimer);
+      restartTimer = setTimeout(() => openMic((attempt || 0) + 1), 500);
+    } else {
+      els.statusLine.textContent = 'マイクを開けませんでした。「🎤 話す」を押してください。';
+    }
+  }
+}
+
 function startListening(mode){
   if(!recognition || !handsFree) return;
   listenMode = mode;
   if(isRecording) return;
   clearTimeout(restartTimer);
   beepListen();
-  restartTimer = setTimeout(() => {
-    if(!handsFree || !listenMode || isRecording) return;
-    try{
-      isRecording = true;
-      recognition.start();
-      els.waveform.classList.add('active');
-      animateWaveform();
-      els.statusLine.textContent = (listenMode === 'answer')
-        ? '聞き取り中... (つぎ=スキップ / ギブアップ / ストップ)'
-        : '「つぎ」で次へ (ストップ=終了)';
-    }catch(e){ isRecording = false; }
-  }, 250);
+  restartTimer = setTimeout(() => openMic(0), 250);
 }
 
 function stopListening(){
@@ -1037,26 +1099,45 @@ function stopListening(){
 function maybeRestartListening(){
   if(handsFree && listenMode && !isRecording){
     clearTimeout(restartTimer);
-    restartTimer = setTimeout(() => {
-      if(!handsFree || !listenMode || isRecording) return;
-      try{
-        isRecording = true;
-        recognition.start();
-        els.waveform.classList.add('active');
-        animateWaveform();
-      }catch(e){ isRecording = false; }
-    }, 300);
+    restartTimer = setTimeout(() => openMic(0), 300);
+  }
+}
+
+// Ask for the microphone while we are still inside the button tap. Without
+// this, the permission prompt can appear after the readout and be missed.
+async function primeMicPermission(){
+  try{
+    if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop());
+    }
+    return true;
+  }catch(e){
+    console.log('mic permission failed:', e && e.name);
+    return false;
   }
 }
 
 async function startHandsFree(){
   if(!recognition){ els.statusLine.textContent = 'このブラウザは音声認識に対応していません。'; return; }
+
   handsFree = true;
   getAudioCtx();
-  await acquireWakeLock();
   els.handsFreeBtn.textContent = '⏹ ハンズフリー停止';
   els.handsFreeBtn.classList.remove('ghost');
   els.hfStatus.style.display = 'block';
+  els.statusLine.textContent = 'マイクを準備しています...';
+
+  const granted = await primeMicPermission();
+  if(!granted){
+    els.statusLine.textContent = 'マイクが使用できません。ブラウザの権限設定を確認してください。';
+    await stopHandsFree();
+    return;
+  }
+
+  await acquireWakeLock();
+  if(!handsFree) return;   // user may have tapped stop while we waited
+
   // If a result is already on screen, wait for "next"; otherwise read the prompt.
   if(els.resultBox.style.display === 'block'){
     startListening('command');
@@ -1074,6 +1155,7 @@ async function stopHandsFree(){
   els.handsFreeBtn.classList.add('ghost');
   els.hfStatus.style.display = 'none';
   els.statusLine.textContent = 'マイクボタンを押して話してください';
+  els.micBtn.textContent = '🎤 話す';
 }
 
 els.handsFreeBtn.addEventListener('click', () => {
