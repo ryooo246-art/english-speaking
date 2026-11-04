@@ -181,7 +181,7 @@
     </div>
     <div id="hfStatus" style="display:none;font-family:var(--mono);font-size:11px;color:var(--accent);
          text-align:center;margin-bottom:12px;padding:6px;background:var(--accent-dim);border-radius:4px;">
-      ハンズフリー中 — 「つぎ」次へ・スキップ / 「ギブアップ」わからない / 「ストップ」終了
+      ハンズフリー中 — 「OK」次へ・スキップ / 「ギブアップ」わからない / 「ストップ」終了
       <div id="lastHeard" style="margin-top:4px;color:var(--muted);"></div>
     </div>
     </div>
@@ -254,7 +254,7 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v2.9';
+const APP_VERSION = 'v3.0';
 const APP_UPDATED = '2026-11-04';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
@@ -951,12 +951,16 @@ document.addEventListener('visibilitychange', () => {
 
 const CMD = {
   next: {
-    words: ['next','nekusuto','tsugi','sugi','tugi','tsuki','suki','ski','skip',
-            'forward','continue','proceed'],
+    // "OK" is the primary command: it is one of the most reliably recognised
+    // utterances in English ASR, far better than the consonant cluster in "next".
+    words: ['ok','okay','okey','oke','okie','kay','oki',
+            'next','nekusuto','tsugi','sugi','tugi','tsuki','suki','ski','skip',
+            'forward','continue','proceed','pass'],
     // Misrecognitions seen in practice for these short words
     confusions: ['text','texts','necks','nest','net','neck','nix','knicks','mixed',
-                 'sky','scree','sugoi','suki','scheme','skipped','skips','next1'],
-    kana: /つぎ|次|スキップ|ネクスト/
+                 'sky','scree','sugoi','scheme','skipped','skips','next1',
+                 'okai','okey','ohkay','oak','okays','o k','a ok'],
+    kana: /つぎ|次|スキップ|ネクスト|オーケー|オッケー|おっけ/
   },
   giveup: {
     words: ['giveup','gibuappu','gibuapu','wakaranai','wakaranai','wakannai','wakarimasen'],
@@ -970,9 +974,10 @@ const CMD = {
   }
 };
 
-// Words that carry no meaning around a command, e.g. "okay next please"
-const FILLERS = new Set(['okay','ok','oke','please','go','the','a','um','uh','er','well',
-                         'now','one','question','mon','and','so','then','hey','yeah']);
+// Only true hesitation noise is ignored around a command. Keeping this list
+// tiny matters: a filler next to a command word would let a real short answer
+// such as "OK then." be read as a command during read-aloud practice.
+const FILLERS = new Set(['please','um','uh','er','ah','eh','mm','hmm']);
 
 function levenshtein(a, b){
   if(a === b) return 0;
@@ -1015,6 +1020,14 @@ function commandCore(compact){
   return { tokens: core, joined: core.join('') };
 }
 
+// Does one word match this command on its own?
+function wordMatches(word, spec){
+  if(!word) return false;
+  if(spec.words.includes(word) || spec.confusions.includes(word)) return true;
+  return spec.words.some(w =>
+    levenshtein(word, w) <= fuzzyTolerance(Math.max(word.length, w.length)));
+}
+
 function matchesCommand(text, spec){
   const compact = normalizeCommand(text);
   if(!compact) return false;
@@ -1022,18 +1035,20 @@ function matchesCommand(text, spec){
 
   const { tokens, joined } = commandCore(compact);
 
-  // Only a short utterance may be a command - real answers are sentences.
-  if(tokens.length > 2) return false;
+  // Only a short utterance may be a command - reading a model answer aloud
+  // for practice is longer than this and must never be mistaken for one.
+  if(!tokens.length || tokens.length > 2) return false;
 
-  const candidates = [joined, tokens.join(' ')];
-  for(const cand of candidates){
-    if(!cand) continue;
-    if(spec.words.includes(cand) || spec.confusions.includes(cand)) return true;
-    for(const w of spec.words){
-      if(levenshtein(cand, w) <= fuzzyTolerance(Math.max(cand.length, w.length))) return true;
-    }
-  }
-  return false;
+  // Whole utterance, with and without the spaces ("tsu gi" -> "tsugi")
+  if(wordMatches(joined, spec)) return true;
+  if(wordMatches(tokens.join(' '), spec)) return true;
+
+  // A single word stands alone ("ok", "next")
+  if(tokens.length === 1) return wordMatches(tokens[0], spec);
+
+  // Two words only count when BOTH are command words ("ok next").
+  // This is what keeps a real answer like "Next time." from advancing.
+  return tokens.every(t => wordMatches(t, spec));
 }
 
 function isNextCommand(text){ return matchesCommand(text, CMD.next); }
@@ -1063,8 +1078,8 @@ function openMic(attempt){
     els.waveform.classList.add('active');
     animateWaveform();
     els.statusLine.textContent = (listenMode === 'answer')
-      ? '聞き取り中... (つぎ=スキップ / ギブアップ / ストップ)'
-      : '「つぎ」で次へ (ストップ=終了)';
+      ? '聞き取り中... (OK=スキップ / ギブアップ / ストップ)'
+      : '「OK」で次へ (ストップ=終了)';
   }catch(e){
     isRecording = false;
     if((attempt || 0) < 2){
@@ -1178,36 +1193,57 @@ let isRecording = false;
 if(SR){
   recognition = new SR();
   recognition.lang = 'en-US';
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
+  // Interim results let a command fire as soon as it is heard, and several
+  // alternatives give a short command more than one chance to be matched
+  // (the top guess may be "text" while the second is "next").
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 5;
+
   recognition.onresult = e => {
-    const t = e.results[0][0].transcript;
-
-    // Surface the raw transcript so unmatched commands can be diagnosed
-    if(handsFree && listenMode === 'command'){
-      els.lastHeard.textContent = '認識: 「' + t + '」';
+    const res = e.results[e.results.length - 1];
+    const alts = [];
+    for(let i = 0; i < res.length; i++){
+      if(res[i] && res[i].transcript) alts.push(res[i].transcript);
     }
+    const primary = alts[0] || '';
+    const isFinal = !!res.isFinal;
 
-    // "ストップ" ends hands-free from either screen
-    if(handsFree && listenMode && isStopCommand(t)){
-      listenMode = null;
-      stopHandsFree();
-      els.statusLine.textContent = 'ハンズフリーを終了しました。';
-      return;
-    }
+    const anyAlt = fn => alts.some(a => fn(a));
 
     if(handsFree && listenMode === 'command'){
-      if(isNextCommand(t)){ listenMode = null; els.nextBtn.click(); }
-      return;   // ignore anything else while waiting on the answer screen
+      els.lastHeard.textContent = '認識: 「' + primary + '」' + (isFinal ? '' : ' …');
     }
+
+    // On the answer screen the user is only ever issuing a command, so react
+    // to interim results there for a faster, more reliable response.
+    if(handsFree && listenMode === 'command'){
+      if(anyAlt(isStopCommand)){
+        listenMode = null;
+        stopHandsFree();
+        els.statusLine.textContent = 'ハンズフリーを終了しました。';
+        return;
+      }
+      if(anyAlt(isNextCommand)){ listenMode = null; els.nextBtn.click(); return; }
+      return;   // ignore anything else while a result is on screen
+    }
+
+    // While answering, only act on a settled result - a partial transcript of a
+    // real sentence could otherwise look like a command.
+    if(!isFinal) return;
 
     if(handsFree && listenMode === 'answer'){
-      if(isNextCommand(t)){ listenMode = null; skipQuestion(); return; }
-      if(isGiveUpCommand(t)){ listenMode = null; stopListening(); els.giveUpBtn.click(); return; }
+      if(anyAlt(isStopCommand)){
+        listenMode = null;
+        stopHandsFree();
+        els.statusLine.textContent = 'ハンズフリーを終了しました。';
+        return;
+      }
+      if(anyAlt(isNextCommand)){ listenMode = null; skipQuestion(); return; }
+      if(anyAlt(isGiveUpCommand)){ listenMode = null; stopListening(); els.giveUpBtn.click(); return; }
       listenMode = null;
       stopListening();
     }
-    handleTranscript(t);
+    handleTranscript(primary);
   };
   recognition.onend = () => {
     isRecording = false;
