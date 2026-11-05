@@ -181,7 +181,7 @@
     </div>
     <div id="hfStatus" style="display:none;font-family:var(--mono);font-size:11px;color:var(--accent);
          text-align:center;margin-bottom:12px;padding:6px;background:var(--accent-dim);border-radius:4px;">
-      ハンズフリー中 — 「OK」次へ・スキップ / 「ギブアップ」わからない / 「ストップ」終了
+      ハンズフリー中 — 自動で次へ進みます / 「つぎ」スキップ / 「ギブアップ」わからない / 「ストップ」終了
       <div id="lastHeard" style="margin-top:4px;color:var(--muted);"></div>
     </div>
     </div>
@@ -254,8 +254,8 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v3.0';
-const APP_UPDATED = '2026-11-04';
+const APP_VERSION = 'v3.1';
+const APP_UPDATED = '2026-11-05';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
 // ===== Sound effects =====
@@ -779,6 +779,7 @@ function renderQuestion(){
 }
 
 els.nextBtn.addEventListener('click', () => {
+  cancelAutoNext(true);
   stopListening();
   if(run && run.attempt < run.total){
     renderQuestion();      // same question, next acceptable answer
@@ -951,16 +952,14 @@ document.addEventListener('visibilitychange', () => {
 
 const CMD = {
   next: {
-    // "OK" is the primary command: it is one of the most reliably recognised
-    // utterances in English ASR, far better than the consonant cluster in "next".
-    words: ['ok','okay','okey','oke','okie','kay','oki',
-            'next','nekusuto','tsugi','sugi','tugi','tsuki','suki','ski','skip',
+    // Advancing is automatic now, so this only skips a question you don't want
+    // to answer. "OK" is deliberately NOT a command: it can be a real answer.
+    words: ['next','nekusuto','tsugi','sugi','tugi','tsuki','suki','ski','skip',
             'forward','continue','proceed','pass'],
     // Misrecognitions seen in practice for these short words
     confusions: ['text','texts','necks','nest','net','neck','nix','knicks','mixed',
-                 'sky','scree','sugoi','scheme','skipped','skips','next1',
-                 'okai','okey','ohkay','oak','okays','o k','a ok'],
-    kana: /つぎ|次|スキップ|ネクスト|オーケー|オッケー|おっけ/
+                 'sky','scree','sugoi','scheme','skipped','skips','next1'],
+    kana: /つぎ|次|スキップ|ネクスト/
   },
   giveup: {
     words: ['giveup','gibuappu','gibuapu','wakaranai','wakaranai','wakannai','wakarimasen'],
@@ -1057,8 +1056,51 @@ function isStopCommand(text){ return matchesCommand(text, CMD.stop); }
 
 // In hands-free mode the prompt is read aloud first, then the mic opens on its
 // own - the 話す button never has to be pressed.
+// ===== Auto-advance after a result =====
+// The answer is read aloud, then the app moves on by itself: no command to say.
+const AUTO_NEXT_CORRECT_MS = 3000;
+const AUTO_NEXT_WRONG_MS   = 6000;
+let autoNextTimer = null;
+let countdownTimer = null;
+
+function cancelAutoNext(silent){
+  clearTimeout(autoNextTimer);
+  clearInterval(countdownTimer);
+  autoNextTimer = null;
+  countdownTimer = null;
+  if(!silent) els.statusLine.textContent = '自動進行を停止しました。「次へ」を押してください。';
+}
+
+function scheduleAutoNext(correct){
+  cancelAutoNext(true);
+  if(!handsFree) return;
+
+  const total = correct ? AUTO_NEXT_CORRECT_MS : AUTO_NEXT_WRONG_MS;
+  let left = Math.ceil(total / 1000);
+
+  const paint = () => {
+    els.statusLine.textContent = `${left} 秒後に次へ (タップで停止)`;
+  };
+  paint();
+
+  countdownTimer = setInterval(() => {
+    left -= 1;
+    if(left > 0) paint();
+  }, 1000);
+
+  autoNextTimer = setTimeout(() => {
+    cancelAutoNext(true);
+    if(handsFree) els.nextBtn.click();
+  }, total);
+
+  // Listen only for "ストップ" while the countdown runs, so hands-free can
+  // still be ended by voice without a command being needed to advance.
+  startListening('command');
+}
+
 function promptThenListen(){
   if(!handsFree) return;
+  cancelAutoNext(true);
   els.lastHeard.textContent = '';
   stopListening();
   if(!currentQ){ return; }
@@ -1078,8 +1120,8 @@ function openMic(attempt){
     els.waveform.classList.add('active');
     animateWaveform();
     els.statusLine.textContent = (listenMode === 'answer')
-      ? '聞き取り中... (OK=スキップ / ギブアップ / ストップ)'
-      : '「OK」で次へ (ストップ=終了)';
+      ? '聞き取り中... (つぎ=スキップ / ギブアップ / ストップ)'
+      : '自動で次へ進みます (ストップ=終了)';
   }catch(e){
     isRecording = false;
     if((attempt || 0) < 2){
@@ -1163,6 +1205,7 @@ async function startHandsFree(){
 
 async function stopHandsFree(){
   handsFree = false;
+  cancelAutoNext(true);
   stopListening();
   try{ speechSynthesis.cancel(); }catch(e){}
   await releaseWakeLock();
@@ -1172,6 +1215,12 @@ async function stopHandsFree(){
   els.statusLine.textContent = 'マイクボタンを押して話してください';
   els.micBtn.textContent = '🎤 話す';
 }
+
+// Tapping the answer area holds the screen so a note can be read
+els.resultBox.addEventListener('click', e => {
+  if(e.target.closest('button')) return;      // let the 🔊 buttons work
+  if(autoNextTimer) cancelAutoNext(false);
+});
 
 els.handsFreeBtn.addEventListener('click', () => {
   handsFree ? stopHandsFree() : startHandsFree();
@@ -1214,17 +1263,17 @@ if(SR){
       els.lastHeard.textContent = '認識: 「' + primary + '」' + (isFinal ? '' : ' …');
     }
 
-    // On the answer screen the user is only ever issuing a command, so react
-    // to interim results there for a faster, more reliable response.
+    // While a result is on screen the app advances on its own, so the only
+    // thing worth hearing is "ストップ". Everything else - including reading
+    // the model answer aloud for practice - is ignored.
     if(handsFree && listenMode === 'command'){
       if(anyAlt(isStopCommand)){
         listenMode = null;
+        cancelAutoNext(true);
         stopHandsFree();
         els.statusLine.textContent = 'ハンズフリーを終了しました。';
-        return;
       }
-      if(anyAlt(isNextCommand)){ listenMode = null; els.nextBtn.click(); return; }
-      return;   // ignore anything else while a result is on screen
+      return;
     }
 
     // While answering, only act on a settled result - a partial transcript of a
@@ -1465,9 +1514,9 @@ function applyResult(transcript, result, remaining){
 
   const toSpeak = matched ? matched.en : (finished && remaining[0] ? remaining[0].en : null);
   if(els.autoSpeak.checked && toSpeak){
-    setTimeout(() => speakText(toSpeak, () => { if(handsFree) startListening('command'); }), 750);
+    setTimeout(() => speakText(toSpeak, () => scheduleAutoNext(correct)), 750);
   } else if(handsFree){
-    setTimeout(() => startListening('command'), 400);
+    setTimeout(() => scheduleAutoNext(correct), 400);
   }
 }
 
@@ -1529,6 +1578,7 @@ function renderAnswerList(matched, revealAll){
 
 els.giveUpBtn.addEventListener('click', () => {
   if(!currentQ || !run) return;
+  cancelAutoNext(true);
   if(isRecording){ try{ recognition.stop(); }catch(e){} isRecording = false; }
   getAudioCtx();
 
@@ -1554,9 +1604,9 @@ els.giveUpBtn.addEventListener('click', () => {
 
   if(els.autoSpeak.checked && currentQ.variants[0]){
     setTimeout(() => speakText(currentQ.variants[0].en,
-      () => { if(handsFree) startListening('command'); }), 750);
+      () => scheduleAutoNext(false)), 750);
   } else if(handsFree){
-    setTimeout(() => startListening('command'), 400);
+    setTimeout(() => scheduleAutoNext(false), 400);
   }
 });
 
