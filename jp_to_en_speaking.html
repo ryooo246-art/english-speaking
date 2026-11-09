@@ -254,8 +254,8 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v3.1';
-const APP_UPDATED = '2026-11-05';
+const APP_VERSION = 'v3.2';
+const APP_UPDATED = '2026-11-09';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
 // ===== Sound effects =====
@@ -1063,6 +1063,11 @@ const AUTO_NEXT_WRONG_MS   = 6000;
 let autoNextTimer = null;
 let countdownTimer = null;
 
+// Timing instrumentation, shown in the diagnostic line
+let micOpenedAt = 0;
+let lastTiming = '';
+let gradeTicker = null;
+
 function cancelAutoNext(silent){
   clearTimeout(autoNextTimer);
   clearInterval(countdownTimer);
@@ -1116,6 +1121,7 @@ function openMic(attempt){
   if(!handsFree || !listenMode || isRecording) return;
   try{
     isRecording = true;
+    micOpenedAt = Date.now();
     recognition.start();
     els.waveform.classList.add('active');
     animateWaveform();
@@ -1242,11 +1248,12 @@ let isRecording = false;
 if(SR){
   recognition = new SR();
   recognition.lang = 'en-US';
-  // Interim results let a command fire as soon as it is heard, and several
-  // alternatives give a short command more than one chance to be matched
-  // (the top guess may be "text" while the second is "next").
-  recognition.interimResults = true;
-  recognition.maxAlternatives = 5;
+  // interimResults MUST stay false: with it on, Chrome holds the session open
+  // much longer before committing a final result, and grading only starts once
+  // that final arrives - it cost about 10s per answer. Several alternatives
+  // still give a short command more than one chance to be matched.
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 3;
 
   recognition.onresult = e => {
     const res = e.results[e.results.length - 1];
@@ -1348,8 +1355,19 @@ function animateWaveform(){
 async function handleTranscript(transcript){
   stopListening();
   els.micBtn.style.display = 'none';
-  els.statusLine.textContent = 'AIが判定中...';
   if(!currentQ) return;
+
+  // How long the recogniser took to hand over the transcript
+  const recogMs = micOpenedAt ? Date.now() - micOpenedAt : 0;
+  const gradeStart = Date.now();
+
+  // A live counter, so a slow call never looks like a freeze
+  els.statusLine.textContent = 'AIが判定中... 0.0秒';
+  clearInterval(gradeTicker);
+  gradeTicker = setInterval(() => {
+    els.statusLine.textContent =
+      'AIが判定中... ' + ((Date.now() - gradeStart) / 1000).toFixed(1) + '秒';
+  }, 100);
 
   const remaining = currentQ.variants
     .map((v, i) => ({ ...v, idx: i }))
@@ -1360,14 +1378,18 @@ async function handleTranscript(transcript){
 
   try{
     const result = await gradeAnswer(currentQ, transcript, remaining, said);
+    clearInterval(gradeTicker);
+    lastTiming = `認識 ${(recogMs/1000).toFixed(1)}s / 判定 ${((Date.now()-gradeStart)/1000).toFixed(1)}s`;
     applyResult(transcript, result, remaining);
   }catch(err){
+    clearInterval(gradeTicker);
     console.error(err);
     let msg = '判定中にエラーが発生しました。もう一度お試しください。';
     if(err.message === 'NO_API_KEY') msg = 'APIキーが未設定です。下の設定欄にキーを入力してください。';
     else if(err.message === 'API_400' || err.message === 'API_403') msg = 'APIキーが正しくないようです。設定欄を確認してください。';
     else if(err.message === 'API_429') msg = 'すべてのモデルが制限に達しました。しばらく待ってお試しください。';
     else if(err.message === 'API_404') msg = 'モデルが利用できません。「使えるモデルを取得」を押してください。';
+    else if(err.message === 'API_TIMEOUT') msg = '応答が遅すぎたため中断しました。通信環境を確認してください。';
     if(err.detail) msg += '\n[詳細] ' + err.detail;
     els.statusLine.textContent = msg;
     els.micBtn.style.display = 'block';
@@ -1445,17 +1467,63 @@ async function gradeWithFallback(systemPrompt, userPrompt){
   throw lastErr || new Error('API_UNKNOWN');
 }
 
+const API_TIMEOUT_MS = 12000;
+
+// Newer Gemini models "think" before answering by default, which adds several
+// seconds to what is a short, mechanical judgement. Older models reject the
+// option, so it is dropped permanently the first time it is refused.
+let thinkingSupported = true;
+
 async function callModel(model, systemPrompt, userPrompt){
+  try{
+    return await callModelOnce(model, systemPrompt, userPrompt, thinkingSupported);
+  }catch(e){
+    const refusedThinking = e && e.message === 'API_400' &&
+      /thinking|thinkingConfig|thinkingBudget|Unknown name/i.test(e.detail || '');
+    if(thinkingSupported && refusedThinking){
+      thinkingSupported = false;
+      console.log('thinkingConfig not supported by', model, '- retrying without it');
+      return await callModelOnce(model, systemPrompt, userPrompt, false);
+    }
+    throw e;
+  }
+}
+
+async function callModelOnce(model, systemPrompt, userPrompt, useThinkingConfig){
   const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent';
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 400, responseMimeType: 'application/json' }
-    })
-  });
+
+  // Never let a stalled request hang the practice loop
+  const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const killer = ctl ? setTimeout(() => ctl.abort(), API_TIMEOUT_MS) : null;
+
+  let response;
+  try{
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      signal: ctl ? ctl.signal : undefined,
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        // thinkingBudget 0 keeps the newer models from spending time reasoning
+        // before answering - this is a short, mechanical judgement.
+        generationConfig: Object.assign({
+          temperature: 0.2,
+          maxOutputTokens: 400,
+          responseMimeType: 'application/json'
+        }, useThinkingConfig ? { thinkingConfig: { thinkingBudget: 0 } } : {})
+      })
+    });
+  }catch(e){
+    if(killer) clearTimeout(killer);
+    if(e && e.name === 'AbortError'){
+      const err = new Error('API_TIMEOUT');
+      err.detail = `${model} が ${API_TIMEOUT_MS/1000} 秒以内に応答しませんでした。`;
+      throw err;
+    }
+    throw e;
+  }
+  if(killer) clearTimeout(killer);
 
   if(!response.ok){
     const errText = await response.text();
@@ -1498,6 +1566,7 @@ function applyResult(transcript, result, remaining){
 
   els.heardText.textContent = `"${transcript}"`;
   els.feedbackText.textContent = result.feedback || '';
+  if(lastTiming) els.lastHeard.textContent = lastTiming + ' / ' + MODEL_ID;
 
   run.attempt++;
   const finished = run.attempt >= run.total;
