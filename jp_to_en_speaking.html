@@ -254,8 +254,8 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v3.2';
-const APP_UPDATED = '2026-11-09';
+const APP_VERSION = 'v3.3';
+const APP_UPDATED = '2026-11-10';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
 // ===== Sound effects =====
@@ -774,6 +774,7 @@ function renderQuestion(){
   els.micBtn.style.display = 'block';
   els.micBtn.disabled = false;
   els.micBtn.textContent = handsFree ? '🎤 今すぐ聞き取る' : '🎤 話す';
+  resetSegments();
   els.micBtn.classList.remove('on');
   els.giveUpBtn.style.display = '';
 }
@@ -1106,6 +1107,7 @@ function scheduleAutoNext(correct){
 function promptThenListen(){
   if(!handsFree) return;
   cancelAutoNext(true);
+  resetSegments();
   els.lastHeard.textContent = '';
   stopListening();
   if(!currentQ){ return; }
@@ -1151,6 +1153,8 @@ function startListening(mode){
 
 function stopListening(){
   listenMode = null;
+  clearTimeout(silenceTimer);
+  clearTimeout(utteranceCap);
   clearTimeout(restartTimer);
   if(isRecording){ try{ recognition.stop(); }catch(e){} }
   isRecording = false;
@@ -1241,6 +1245,60 @@ function skipQuestion(){
 }
 
 // ===== Speech recognition =====
+// How long a pause may be before the answer is considered finished. Longer
+// means fewer sentences cut in half, but a longer wait before grading starts.
+const SILENCE_END_MS = 1300;
+const MAX_UTTERANCE_MS = 20000;
+
+let segments = [];          // one entry per recognised chunk: its alternatives
+let silenceTimer = null;
+let utteranceCap = null;
+
+function resetSegments(){
+  segments = [];
+  clearTimeout(silenceTimer);
+  clearTimeout(utteranceCap);
+  silenceTimer = null;
+  utteranceCap = null;
+}
+
+// Build whole-sentence candidates by taking each chunk's 1st, 2nd, 3rd guess.
+// The grader sees all of them, so one badly heard word need not cost the answer.
+function buildCandidates(segs){
+  if(!segs.length) return [''];
+  const depth = Math.min(3, Math.max(...segs.map(a => a.length)));
+  const out = [];
+  for(let i = 0; i < depth; i++){
+    const line = segs.map(a => a[Math.min(i, a.length - 1)] || a[0]).join(' ').trim();
+    if(line && !out.includes(line)) out.push(line);
+  }
+  return out.length ? out : [''];
+}
+
+function armSilenceTimer(){
+  clearTimeout(silenceTimer);
+  silenceTimer = setTimeout(finishUtterance, SILENCE_END_MS);
+  if(!utteranceCap){
+    utteranceCap = setTimeout(finishUtterance, MAX_UTTERANCE_MS);
+  }
+}
+
+// The user has stopped talking: hand the collected text to the grader.
+function finishUtterance(){
+  clearTimeout(silenceTimer);
+  clearTimeout(utteranceCap);
+  silenceTimer = null;
+  utteranceCap = null;
+  if(!segments.length) return;
+
+  const candidates = buildCandidates(segments);
+  resetSegments();
+  listenMode = null;
+  stopListening();
+  handleTranscript(candidates[0], candidates);
+}
+
+
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
 let isRecording = false;
@@ -1253,57 +1311,61 @@ if(SR){
   // that final arrives - it cost about 10s per answer. Several alternatives
   // still give a short command more than one chance to be matched.
   recognition.interimResults = false;
-  recognition.maxAlternatives = 3;
+  // Alternatives are now all handed to the grader, so a word the engine's top
+  // guess gets wrong can still be recovered from its 2nd or 3rd guess.
+  recognition.maxAlternatives = 5;
+  // continuous keeps the session open across mid-sentence pauses, which used to
+  // truncate longer answers. End of speech is decided by SILENCE_END_MS below.
+  recognition.continuous = true;
 
   recognition.onresult = e => {
     const res = e.results[e.results.length - 1];
+    if(!res || !res.isFinal) return;
+
     const alts = [];
     for(let i = 0; i < res.length; i++){
-      if(res[i] && res[i].transcript) alts.push(res[i].transcript);
+      if(res[i] && res[i].transcript) alts.push(res[i].transcript.trim());
     }
-    const primary = alts[0] || '';
-    const isFinal = !!res.isFinal;
-
+    if(!alts.length) return;
     const anyAlt = fn => alts.some(a => fn(a));
 
-    if(handsFree && listenMode === 'command'){
-      els.lastHeard.textContent = '認識: 「' + primary + '」' + (isFinal ? '' : ' …');
-    }
-
-    // While a result is on screen the app advances on its own, so the only
-    // thing worth hearing is "ストップ". Everything else - including reading
-    // the model answer aloud for practice - is ignored.
-    if(handsFree && listenMode === 'command'){
-      if(anyAlt(isStopCommand)){
-        listenMode = null;
-        cancelAutoNext(true);
-        stopHandsFree();
-        els.statusLine.textContent = 'ハンズフリーを終了しました。';
-      }
+    // "ストップ" works from either screen and must not wait on the silence timer
+    if(handsFree && listenMode && anyAlt(isStopCommand)){
+      listenMode = null;
+      clearTimeout(silenceTimer);
+      cancelAutoNext(true);
+      stopHandsFree();
+      els.statusLine.textContent = 'ハンズフリーを終了しました。';
       return;
     }
 
-    // While answering, only act on a settled result - a partial transcript of a
-    // real sentence could otherwise look like a command.
-    if(!isFinal) return;
-
-    if(handsFree && listenMode === 'answer'){
-      if(anyAlt(isStopCommand)){
-        listenMode = null;
-        stopHandsFree();
-        els.statusLine.textContent = 'ハンズフリーを終了しました。';
-        return;
-      }
-      if(anyAlt(isNextCommand)){ listenMode = null; skipQuestion(); return; }
-      if(anyAlt(isGiveUpCommand)){ listenMode = null; stopListening(); els.giveUpBtn.click(); return; }
-      listenMode = null;
-      stopListening();
+    // While a result is on screen the app advances on its own, so nothing else
+    // is acted on - including reading the model answer aloud for practice.
+    if(handsFree && listenMode === 'command'){
+      els.lastHeard.textContent = '認識: 「' + alts[0] + '」';
+      return;
     }
-    handleTranscript(primary);
+
+    // Commands end the turn immediately; they are never part of a sentence.
+    if(handsFree && listenMode === 'answer'){
+      if(anyAlt(isNextCommand)){ listenMode = null; clearTimeout(silenceTimer); skipQuestion(); return; }
+      if(anyAlt(isGiveUpCommand)){
+        listenMode = null; clearTimeout(silenceTimer); stopListening(); els.giveUpBtn.click(); return;
+      }
+    }
+
+    // Otherwise this is a piece of the answer. Collect it and wait to see
+    // whether the user is still speaking.
+    segments.push(alts);
+    els.statusLine.textContent = '聞き取り中... 「' + buildCandidates(segments)[0] + '」';
+    armSilenceTimer();
   };
   recognition.onend = () => {
     isRecording = false;
     els.waveform.classList.remove('active');
+    // Chrome ends the session on its own after a while - don't lose a
+    // half-collected answer when that happens.
+    if(segments.length && listenMode === 'answer'){ finishUtterance(); return; }
     maybeRestartListening();
   };
   recognition.onerror = e => {
@@ -1332,9 +1394,11 @@ if(SR){
 els.micBtn.addEventListener('click', () => {
   if(!recognition || !questions.length) return;
   getAudioCtx(); // unlock audio on user gesture
-  if(handsFree){ listenMode = 'answer'; }
+  listenMode = 'answer';
+  resetSegments();
   if(isRecording) return;
   isRecording = true;
+  micOpenedAt = Date.now();
   els.micBtn.classList.add('on');
   els.micBtn.textContent = '■ 聞き取り中...';
   els.waveform.classList.add('active');
@@ -1352,7 +1416,7 @@ function animateWaveform(){
 }
 
 // ===== Grading =====
-async function handleTranscript(transcript){
+async function handleTranscript(transcript, candidates){
   stopListening();
   els.micBtn.style.display = 'none';
   if(!currentQ) return;
@@ -1377,7 +1441,7 @@ async function handleTranscript(transcript){
     .filter(v => run.saidIdx.includes(v.idx));
 
   try{
-    const result = await gradeAnswer(currentQ, transcript, remaining, said);
+    const result = await gradeAnswer(currentQ, transcript, remaining, said, candidates);
     clearInterval(gradeTicker);
     lastTiming = `認識 ${(recogMs/1000).toFixed(1)}s / 判定 ${((Date.now()-gradeStart)/1000).toFixed(1)}s`;
     applyResult(transcript, result, remaining);
@@ -1399,7 +1463,7 @@ async function handleTranscript(transcript){
   }
 }
 
-async function gradeAnswer(q, transcript, remaining, said){
+async function gradeAnswer(q, transcript, remaining, said, candidates){
   if(!apiKey) throw new Error('NO_API_KEY');
 
   const systemPrompt = `あなたは日本語→英語の口頭翻訳練習を採点するアシスタントです。
@@ -1413,6 +1477,9 @@ async function gradeAnswer(q, transcript, remaining, said){
    "um" "uh" "well" などのつなぎ語は最初から無かったものとして扱い、最終的な発話内容だけで採点します。
    例:「I... I'm a student.」は「I'm a student.」として採点し、繰り返しには一切言及しないでください。
 4. 音声認識の誤変換と思われるもの(同音異義語の取り違えなど)は、意図が明らかであれば正解としてください。
+   ユーザーの発話は複数の認識候補として渡されます。これらは「同じ1回の発話」に対する競合する解釈であり、
+   別々の発話ではありません。どれか1つでも模範解答と意味的に一致していれば正解としてください。
+   日本語話者の英語を認識した結果なので、l/r、b/v、th/s、母音の長短の取り違えが起こりやすいことを考慮してください。
 5. 句読点・大文字小文字の違いは無視してください(音声認識では区別できないため)。
 6. 文法の軽微な誤り(冠詞の抜け、三単現のsなど)は、意味が通じていれば正解としてください。
 7. 模範解答の [ ] 内は「直前の語と置き換え可能な別の言い方」を示す記法です。スラッシュ区切りで複数の候補が入ります。
@@ -1426,6 +1493,12 @@ async function gradeAnswer(q, transcript, remaining, said){
   const remainList = remaining.map((v, i) => `${i}: ${v.en}`).join('\n');
   const saidList = said.length ? said.map(v => `- ${v.en}`).join('\n') : '(なし)';
 
+  const cands = (candidates && candidates.length ? candidates : [transcript])
+    .filter(Boolean);
+  const candList = cands.length > 1
+    ? cands.map((c, i) => `候補${i + 1}: ${c}`).join('\n')
+    : cands[0];
+
   const userPrompt = `日本語の原文: ${q.ja}
 
 まだ言っていない模範解答(この中のどれかと一致すれば正解。番号をmatchedIndexで返す):
@@ -1434,7 +1507,8 @@ ${remainList}
 すでに言った答え(これを繰り返した場合は不正解):
 ${saidList}
 
-ユーザーの発話(音声認識結果): ${transcript}`;
+ユーザーの発話(音声認識の候補。同じ1回の発話に対する競合する解釈):
+${candList}`;
 
   return await gradeWithFallback(systemPrompt, userPrompt);
 }
