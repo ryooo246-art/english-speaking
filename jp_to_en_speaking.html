@@ -254,8 +254,8 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v3.3';
-const APP_UPDATED = '2026-11-10';
+const APP_VERSION = 'v3.4';
+const APP_UPDATED = '2026-11-11';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
 // ===== Sound effects =====
@@ -398,6 +398,7 @@ els.listModelsBtn.addEventListener('click', async () => {
 });
 
 async function loadApiKey(){
+  await loadThinkingBlocked();
   const list = await store.get(MODELS_LIST_STORE);
   if(list){ try{ availableModels = JSON.parse(list) || []; }catch(e){} }
   const m = await store.get(MODEL_STORE);
@@ -1450,7 +1451,12 @@ async function handleTranscript(transcript, candidates){
     console.error(err);
     let msg = '判定中にエラーが発生しました。もう一度お試しください。';
     if(err.message === 'NO_API_KEY') msg = 'APIキーが未設定です。下の設定欄にキーを入力してください。';
-    else if(err.message === 'API_400' || err.message === 'API_403') msg = 'APIキーが正しくないようです。設定欄を確認してください。';
+    else if(err.message === 'API_403') msg = 'APIキーが拒否されました。設定欄を確認してください。';
+    else if(err.message === 'API_400'){
+      msg = /api[_ ]?key|credential|unauthenticated/i.test(err.detail || '')
+        ? 'APIキーが正しくないようです。設定欄を確認してください。'
+        : 'リクエストが受け付けられませんでした。モデルを変えて再試行してください。';
+    }
     else if(err.message === 'API_429') msg = 'すべてのモデルが制限に達しました。しばらく待ってお試しください。';
     else if(err.message === 'API_404') msg = 'モデルが利用できません。「使えるモデルを取得」を押してください。';
     else if(err.message === 'API_TIMEOUT') msg = '応答が遅すぎたため中断しました。通信環境を確認してください。';
@@ -1546,17 +1552,36 @@ const API_TIMEOUT_MS = 12000;
 // Newer Gemini models "think" before answering by default, which adds several
 // seconds to what is a short, mechanical judgement. Older models reject the
 // option, so it is dropped permanently the first time it is refused.
-let thinkingSupported = true;
+// Which models have refused thinkingConfig. Gemini does NOT name the offending
+// field - it just says "Request contains an invalid argument." - so ANY 400 on a
+// request that carried thinkingConfig is treated as that field being rejected,
+// and the model is remembered so the wasted call happens at most once.
+const THINKING_BLOCKED_STORE = 'thinking_blocked_v1';
+let thinkingBlocked = new Set();
+
+async function loadThinkingBlocked(){
+  try{
+    const raw = await store.get(THINKING_BLOCKED_STORE);
+    if(raw) thinkingBlocked = new Set(JSON.parse(raw) || []);
+  }catch(e){ thinkingBlocked = new Set(); }
+}
+
+async function blockThinking(model){
+  thinkingBlocked.add(model);
+  try{ await store.set(THINKING_BLOCKED_STORE, JSON.stringify([...thinkingBlocked])); }catch(e){}
+}
 
 async function callModel(model, systemPrompt, userPrompt){
+  const useThinking = !thinkingBlocked.has(model);
   try{
-    return await callModelOnce(model, systemPrompt, userPrompt, thinkingSupported);
+    return await callModelOnce(model, systemPrompt, userPrompt, useThinking);
   }catch(e){
-    const refusedThinking = e && e.message === 'API_400' &&
-      /thinking|thinkingConfig|thinkingBudget|Unknown name/i.test(e.detail || '');
-    if(thinkingSupported && refusedThinking){
-      thinkingSupported = false;
-      console.log('thinkingConfig not supported by', model, '- retrying without it');
+    // A 400 on a request that included thinkingConfig: drop it and try again,
+    // unless the API plainly blamed the key (retrying would change nothing).
+    const keyProblem = /api[_ ]?key|credential|unauthenticated|permission/i.test((e && e.detail) || '');
+    if(useThinking && e && e.message === 'API_400' && !keyProblem){
+      console.log('400 with thinkingConfig on', model, '- retrying without it:', e.detail);
+      await blockThinking(model);
       return await callModelOnce(model, systemPrompt, userPrompt, false);
     }
     throw e;
