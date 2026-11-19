@@ -181,7 +181,7 @@
     </div>
     <div id="hfStatus" style="display:none;font-family:var(--mono);font-size:11px;color:var(--accent);
          text-align:center;margin-bottom:12px;padding:6px;background:var(--accent-dim);border-radius:4px;">
-      ハンズフリー中 — 自動で次へ進みます / 「つぎ」スキップ / 「ギブアップ」わからない / 「ストップ」終了
+      ハンズフリー中 — 自動で次へ進みます / 解答中に「つぎ」スキップ・「ギブアップ」・「ストップ」終了
       <div id="lastHeard" style="margin-top:4px;color:var(--muted);"></div>
     </div>
     </div>
@@ -254,8 +254,8 @@
 <script src="english_data.js" onerror="console.log('english_data.js not found')"></script>
 <script>
 // ===== Version =====
-const APP_VERSION = 'v3.4';
-const APP_UPDATED = '2026-11-11';
+const APP_VERSION = 'v3.5';
+const APP_UPDATED = '2026-11-19';
 document.getElementById('versionLabel').textContent = APP_VERSION + ' (' + APP_UPDATED + ')';
 
 // ===== Sound effects =====
@@ -1100,9 +1100,11 @@ function scheduleAutoNext(correct){
     if(handsFree) els.nextBtn.click();
   }, total);
 
-  // Listen only for "ストップ" while the countdown runs, so hands-free can
-  // still be ended by voice without a command being needed to advance.
-  startListening('command');
+  // The mic stays CLOSED while a result is on screen. Reading the model answer
+  // aloud for practice must never reach the recogniser - it advances by itself,
+  // so there is nothing here it needs to hear. Voice "ストップ" works while
+  // answering; on this screen, use the 停止 button.
+  stopListening();
 }
 
 function promptThenListen(){
@@ -1152,12 +1154,20 @@ function startListening(mode){
   restartTimer = setTimeout(() => openMic(0), 250);
 }
 
-function stopListening(){
+// recognition.stop() FINALISES whatever audio is buffered and delivers it as a
+// result - which is how speech from the previous screen ended up being graded as
+// the next question's answer. abort() discards it instead, so leaving a screen
+// never carries audio over. keepAudio: true is only for the rare case where a
+// pending final is still wanted.
+function stopListening(keepAudio){
+  answerTurn++;                 // anything still in flight belongs to a past turn
   listenMode = null;
   clearTimeout(silenceTimer);
   clearTimeout(utteranceCap);
   clearTimeout(restartTimer);
-  if(isRecording){ try{ recognition.stop(); }catch(e){} }
+  if(isRecording){
+    try{ keepAudio ? recognition.stop() : recognition.abort(); }catch(e){}
+  }
   isRecording = false;
   els.waveform.classList.remove('active');
 }
@@ -1206,9 +1216,10 @@ async function startHandsFree(){
   await acquireWakeLock();
   if(!handsFree) return;   // user may have tapped stop while we waited
 
-  // If a result is already on screen, wait for "next"; otherwise read the prompt.
+  // If a result is already on screen, give it the usual pause and move on;
+  // otherwise read the prompt and then listen.
   if(els.resultBox.style.display === 'block'){
-    startListening('command');
+    scheduleAutoNext(false);
   } else {
     promptThenListen();
   }
@@ -1254,6 +1265,9 @@ const MAX_UTTERANCE_MS = 20000;
 let segments = [];          // one entry per recognised chunk: its alternatives
 let silenceTimer = null;
 let utteranceCap = null;
+// Bumped whenever listening stops or a new question starts. A silence timer or
+// recognition result from an earlier turn is dropped rather than graded.
+let answerTurn = 0;
 
 function resetSegments(){
   segments = [];
@@ -1277,24 +1291,26 @@ function buildCandidates(segs){
 }
 
 function armSilenceTimer(){
+  const turn = answerTurn;
   clearTimeout(silenceTimer);
-  silenceTimer = setTimeout(finishUtterance, SILENCE_END_MS);
+  silenceTimer = setTimeout(() => finishUtterance(turn), SILENCE_END_MS);
   if(!utteranceCap){
-    utteranceCap = setTimeout(finishUtterance, MAX_UTTERANCE_MS);
+    utteranceCap = setTimeout(() => finishUtterance(turn), MAX_UTTERANCE_MS);
   }
 }
 
 // The user has stopped talking: hand the collected text to the grader.
-function finishUtterance(){
+function finishUtterance(forTurn){
   clearTimeout(silenceTimer);
   clearTimeout(utteranceCap);
   silenceTimer = null;
   utteranceCap = null;
   if(!segments.length) return;
+  // A turn that has already moved on must not be graded
+  if(forTurn !== undefined && forTurn !== answerTurn){ resetSegments(); return; }
 
   const candidates = buildCandidates(segments);
   resetSegments();
-  listenMode = null;
   stopListening();
   handleTranscript(candidates[0], candidates);
 }
@@ -1355,8 +1371,11 @@ if(SR){
       }
     }
 
-    // Otherwise this is a piece of the answer. Collect it and wait to see
-    // whether the user is still speaking.
+    // Only ever collect while an answer is actually being taken. Without this
+    // guard a result arriving with no active mode - a late final from the
+    // previous screen - was appended to the next question's answer.
+    if(listenMode !== 'answer') return;
+
     segments.push(alts);
     els.statusLine.textContent = '聞き取り中... 「' + buildCandidates(segments)[0] + '」';
     armSilenceTimer();
@@ -1366,7 +1385,7 @@ if(SR){
     els.waveform.classList.remove('active');
     // Chrome ends the session on its own after a while - don't lose a
     // half-collected answer when that happens.
-    if(segments.length && listenMode === 'answer'){ finishUtterance(); return; }
+    if(segments.length && listenMode === 'answer'){ finishUtterance(answerTurn); return; }
     maybeRestartListening();
   };
   recognition.onerror = e => {
